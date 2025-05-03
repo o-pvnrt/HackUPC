@@ -7,9 +7,85 @@ import os
 
 # Dictionary of predefined objects
 OBJETOS_DISPONIBLES = {
-    "Motor": {"masa": 5.0, "potencia": 100},
-    "Sensor": {"masa": 1.0, "precisión": 0.01},
-    "Caja": {"masa": 2.0, "material": "madera"}
+    "None": {
+        "size_x": 100,
+        "size_y": 100,
+        "price": 0,
+        "inputs": 0,
+        "outputs": 0,
+        "common": [],
+        "specific": []
+    },
+    "Transformer": {
+        "size_x": 120,
+        "size_y": 120,
+        "price": 10000,
+        "inputs": 1,
+        "outputs": 1,
+        "inputs_names": ["Grid Connection"],
+        "outputs_names": ["Usable Power"],
+        "common": ["Space X", "Space Y", "Price"]
+    },
+    "Water Supply": {
+        "size_x": 100,
+        "size_y": 100,
+        "price": 5000,
+        "inputs": 1,
+        "outputs": 1,
+        "inputs_names": ["Water Connection"],
+        "outputs_names": ["Fresh Water"],
+        "common": ["Space X", "Space Y", "Price"]
+    },
+    "Water Treatment": {
+        "size_x": 120,
+        "size_y": 120,
+        "price": 8000,
+        "inputs": 2,
+        "outputs": 1,
+        "inputs_names": ["Fresh Water", "Usable Power"],
+        "outputs_names": ["Distilled Water"],
+        "common": ["Space X", "Space Y", "Price"]
+    },
+    "Water Chiller": {
+        "size_x": 120,
+        "size_y": 120,
+        "price": 9000,
+        "inputs": 2,
+        "outputs": 1,
+        "inputs_names": ["Distilled Water", "Usable Power"],
+        "outputs_names": ["Chilled Water"],
+        "common": ["Space X", "Space Y", "Price"]
+    },
+    "Network Rack": {
+        "size_x": 100,
+        "size_y": 200,
+        "price": 15000,
+        "inputs": 3,
+        "outputs": 1,
+        "inputs_names": ["Usable Power", "Chilled Water", "Fresh Water"],
+        "outputs_names": ["Internal Network"],
+        "common": ["Space X", "Space Y", "Price"]
+    },
+    "Server Rack": {
+        "size_x": 100,
+        "size_y": 200,
+        "price": 20000,
+        "inputs": 4,
+        "outputs": 2,
+        "inputs_names": ["Usable Power", "Chilled Water", "Internal Network", "Distilled Water"],
+        "outputs_names": ["Processing", "External Network"],
+        "common": ["Space X", "Space Y", "Price"]
+    },
+    "Data Rack": {
+        "size_x": 100,
+        "size_y": 200,
+        "price": 18000,
+        "inputs": 4,
+        "outputs": 1,
+        "inputs_names": ["Usable Power", "Chilled Water", "Internal Network", "Distilled Water"],
+        "outputs_names": ["Data Storage"],
+        "common": ["Space X", "Space Y", "Price"]
+    }
 }
 
 class Objeto:
