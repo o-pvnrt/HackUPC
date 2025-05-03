@@ -1,6 +1,8 @@
 import customtkinter as ctk
-from tkinter import simpledialog, messagebox
+from tkinter import simpledialog, messagebox, Menu
 import pandas as pd
+from PIL import ImageGrab
+import os
 
 
 # Dictionary of predefined objects
@@ -51,6 +53,7 @@ class App(ctk.CTk):
         self.create_canvas()
         self.bind('<Escape>', lambda event: self.select_tool('select'))
         self.bind('<Delete>', lambda event: self.select_tool('erase'))
+        self.bind('<Escape>', self.cancel_cable_mode_or_select)
 
     def create_toolbars(self):
         """Create the toolbars."""
@@ -138,7 +141,6 @@ class App(ctk.CTk):
         canvas_bg = "white" if new_mode == "Light" else "black"
         self.canvas.configure(bg=canvas_bg)
         self.draw_grid()  # Redraw the grid to match the new background
-
     def create_canvas(self):
         """Create the drawing canvas with a grid."""
         self.canvas = ctk.CTkCanvas(self, bg="white")
@@ -147,10 +149,32 @@ class App(ctk.CTk):
         self.canvas.bind("<Button-1>", self.on_click)  # Left-click for selecting/placing
         self.canvas.bind("<ButtonRelease-1>", self.release)  # Release after dragging
         self.canvas.bind("<B1-Motion>", self.on_drag)  # Dragging (always enabled)
-        self.canvas.bind("<Button-3>", self.show_object_context_menu)  # Right-click for context menu
+        self.canvas.bind("<Button-3>", self.on_right_click_anywhere)  # Right-click for context menu or cancel cable
         self.canvas.bind("<Double-Button-1>", self.edit_object)  # Double-click for editing
         self.canvas.bind("<Motion>", self.on_mouse_move)  # For preview
+        self.canvas.bind("<Button-3>", self.show_object_context_menu)  # Right-click for context menu
         self.draw_grid()
+
+    def cancel_cable_mode_or_select(self, event=None):
+        """Cancel cable mode if active, otherwise select tool."""
+        if self.tool == "cable":
+            self.cleanup_cable_preview()
+            self.tool = "select"
+            self.cable_type = None
+            self.canvas.config(cursor="arrow")
+        else:
+            self.select_tool('select')
+
+    def on_right_click_anywhere(self, event):
+        """Right click: cancel cable mode if active, else show context menu."""
+        if self.tool == "cable":
+            self.cleanup_cable_preview()
+            self.tool = "select"
+            self.cable_type = None
+            self.canvas.config(cursor="arrow")
+        else:
+            self.show_object_context_menu(event)
+
 
     def draw_grid(self):
         """Draw a grid on the canvas."""
