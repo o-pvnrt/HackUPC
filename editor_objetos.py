@@ -55,7 +55,7 @@ class App(ctk.CTk):
         self.grid_size_entry.bind("<Return>", self.update_grid_size)  # Bind Enter key to update grid size
 
         # Add light/dark mode switch
-        mode_switch = ctk.CTkSwitch(tool_frame, text="Dark Mode", command=self.toggle_mode)
+        mode_switch = ctk.CTkSwitch(tool_frame, text="Switch Color Mode", command=self.toggle_mode)
         mode_switch.pack(side="right", padx=5, pady=5)
 
         # Add button to open the create menu
@@ -225,6 +225,15 @@ class App(ctk.CTk):
             if new_size > 0:
                 self.grid_size = new_size
                 self.draw_grid()  # Redraw the grid with the new size
+
+                # Snap all objects to the nearest grid corner
+                for obj in self.objetos:
+                    snapped_x, snapped_y = self.snap_to_grid(obj.x, obj.y)
+                    obj.x = snapped_x
+                    obj.y = snapped_y
+                    r = 25  # Half the side length of the square
+                    self.canvas.coords(obj.id_canvas[0], snapped_x - r, snapped_y - r, snapped_x + r, snapped_y + r)
+                    self.canvas.coords(obj.id_canvas[1], snapped_x, snapped_y)
             else:
                 messagebox.showerror("Invalid Input", "Grid size must be a positive integer.")
         except ValueError:
@@ -232,23 +241,43 @@ class App(ctk.CTk):
 
     def open_create_menu(self):
         """Open a menu to create a new object."""
-        menu = ctk.CTkToplevel(self)
-        menu.title("Create New Object")
-        menu.geometry("400x400")
+        if hasattr(self, "create_menu_window") and self.create_menu_window is not None and self.create_menu_window.winfo_exists():
+            # If the window already exists, bring it to the front
+            self.create_menu_window.lift()
+            return
 
-        ctk.CTkLabel(menu, text="Object Name:").pack(pady=5)
+        # Create the new window
+        self.create_menu_window = ctk.CTkToplevel(self)
+        self.create_menu_window.title("Create New Object")
+        self.create_menu_window.geometry("400x400")
+
+        # Position the window to the right-hand side of the program window
+        main_x = self.winfo_rootx()  # Get the absolute x-coordinate of the main window
+        main_y = self.winfo_rooty()  # Get the absolute y-coordinate of the main window
+        main_width = self.winfo_width()  # Get the width of the main window
+        screen_width = self.winfo_screenwidth()  # Get the width of the screen
+
+        # Ensure the new window doesn't go off-screen
+        new_x = min(main_x + main_width + 10, screen_width - 400)  # 400 is the width of the new window
+        self.create_menu_window.geometry(f"+{new_x}+{main_y}")
+
+        # Make the window modal
+        self.create_menu_window.transient(self)
+        self.create_menu_window.grab_set()
+
+        ctk.CTkLabel(self.create_menu_window, text="Object Name:").pack(pady=5)
         nombre = ctk.StringVar()
-        ctk.CTkEntry(menu, textvariable=nombre).pack(pady=5)
+        ctk.CTkEntry(self.create_menu_window, textvariable=nombre).pack(pady=5)
 
-        ctk.CTkLabel(menu, text="Size X:").pack(pady=5)
+        ctk.CTkLabel(self.create_menu_window, text="Size X:").pack(pady=5)
         size_x = ctk.StringVar(value="50")
-        ctk.CTkEntry(menu, textvariable=size_x).pack(pady=5)
+        ctk.CTkEntry(self.create_menu_window, textvariable=size_x).pack(pady=5)
 
-        ctk.CTkLabel(menu, text="Size Y:").pack(pady=5)
+        ctk.CTkLabel(self.create_menu_window, text="Size Y:").pack(pady=5)
         size_y = ctk.StringVar(value="50")
-        ctk.CTkEntry(menu, textvariable=size_y).pack(pady=5)
+        ctk.CTkEntry(self.create_menu_window, textvariable=size_y).pack(pady=5)
 
-        propiedades_frame = ctk.CTkFrame(menu)
+        propiedades_frame = ctk.CTkFrame(self.create_menu_window)
         propiedades_frame.pack(fill="both", expand=True, pady=10)
 
         ctk.CTkLabel(propiedades_frame, text="New Properties:").pack(pady=5)
@@ -273,7 +302,7 @@ class App(ctk.CTk):
             ctk.CTkButton(prop_frame, text="X", command=eliminar_propiedad, width=20).pack(side="left", padx=5)
             propiedades.append((prop_nombre, prop_valor))
 
-        ctk.CTkButton(menu, text="Add Property", command=agregar_propiedad).pack(pady=5)
+        ctk.CTkButton(self.create_menu_window, text="Add Property", command=agregar_propiedad).pack(pady=5)
 
         def crear_objeto():
             """Create a new object with the entered properties."""
@@ -287,9 +316,17 @@ class App(ctk.CTk):
 
             OBJETOS_DISPONIBLES[nombre.get()] = nuevo_objeto
             self.objeto_actual.set(nombre.get())
-            menu.destroy()
+            self.create_menu_window.destroy()
+            self.create_menu_window = None  # Reset the reference
 
-        ctk.CTkButton(menu, text="Create Object", command=crear_objeto).pack(pady=10)
+        ctk.CTkButton(self.create_menu_window, text="Create Object", command=crear_objeto).pack(pady=10)
+
+        # Handle window close event
+        def on_close():
+            self.create_menu_window.destroy()
+            self.create_menu_window = None
+
+        self.create_menu_window.protocol("WM_DELETE_WINDOW", on_close)
 
     def delete_object(self, event):
         """Delete an object from the canvas."""
