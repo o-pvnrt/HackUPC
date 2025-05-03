@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import simpledialog, messagebox
 import pandas as pd
 
+
 # Dictionary of predefined objects
 OBJETOS_DISPONIBLES = {
     "Motor": {"masa": 5.0, "potencia": 100},
@@ -143,13 +144,46 @@ class App(ctk.CTk):
         snapped_x, snapped_y = self.snap_to_grid(event.x, event.y)
         obj = Objeto(obj_type, snapped_x, snapped_y, attributes)
 
-        r = 25  # Half the side length of the square
-        color = {"Motor": "red", "Sensor": "blue", "Caja": "green"}.get(obj_type, "gray")
-        id_canvas = self.canvas.create_rectangle(snapped_x - r, snapped_y - r, snapped_x + r, snapped_y + r, fill=color)
-        text_id = self.canvas.create_text(snapped_x, snapped_y, text=obj_type, fill="white")
+        size_x = attributes.get("size_x", 100)
+        size_y = attributes.get("size_y", 100)
+        inputs = attributes.get("inputs", 0)
+        outputs = attributes.get("outputs", 0)
 
-        obj.id_canvas = (id_canvas, text_id)
+        # Draw the main shape (rectangle)
+        color = {"Motor": "red", "Sensor": "blue", "Caja": "green"}.get(obj_type, "gray")
+        id_canvas = [self.canvas.create_rectangle(
+            snapped_x - size_x // 2, snapped_y - size_y // 2,
+            snapped_x + size_x // 2, snapped_y + size_y // 2,
+            fill=color, tags="figure"
+        )]
+        text_id = self.canvas.create_text(snapped_x, snapped_y, text=obj_type, fill="white", tags="figure")
+        id_canvas.append(text_id)
+
+        # Draw inputs as small circles on the left edge
+        for i in range(inputs):
+            input_y = snapped_y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
+            input_id = self.canvas.create_oval(
+                snapped_x - size_x // 2 - 5, input_y - 5,
+                snapped_x - size_x // 2 + 5, input_y + 5,
+                fill="black", tags="figure"
+            )
+            id_canvas.append(input_id)
+
+        # Draw outputs as small circles on the right edge
+        for i in range(outputs):
+            output_y = snapped_y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
+            output_id = self.canvas.create_oval(
+                snapped_x + size_x // 2 - 5, output_y - 5,
+                snapped_x + size_x // 2 + 5, output_y + 5,
+                fill="black", tags="figure"
+            )
+            id_canvas.append(output_id)
+
+        obj.id_canvas = id_canvas
         self.objetos.append(obj)
+
+        # Ensure the figure is above the grid
+        self.canvas.tag_raise("figure")
 
     def select_object(self, event):
         """Select an object by clicking on it."""
@@ -179,9 +213,41 @@ class App(ctk.CTk):
         # Update the object's position
         self.seleccionado.x = new_x
         self.seleccionado.y = new_y
-        r = 25
-        self.canvas.coords(self.seleccionado.id_canvas[0], new_x - r, new_y - r, new_x + r, new_y + r)
+
+        # Get the object's attributes
+        attributes = self.seleccionado.atributos
+        size_x = attributes.get("size_x", 100)
+        size_y = attributes.get("size_y", 100)
+        inputs = attributes.get("inputs", 0)
+        outputs = attributes.get("outputs", 0)
+
+        # Update the main shape (rectangle)
+        self.canvas.coords(
+            self.seleccionado.id_canvas[0],
+            new_x - size_x // 2, new_y - size_y // 2,
+            new_x + size_x // 2, new_y + size_y // 2
+        )
+
+        # Update the text position
         self.canvas.coords(self.seleccionado.id_canvas[1], new_x, new_y)
+
+        # Update the positions of inputs
+        for i in range(inputs):
+            input_y = new_y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
+            self.canvas.coords(
+                self.seleccionado.id_canvas[2 + i],
+                new_x - size_x // 2 - 5, input_y - 5,
+                new_x - size_x // 2 + 5, input_y + 5
+            )
+
+        # Update the positions of outputs
+        for i in range(outputs):
+            output_y = new_y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
+            self.canvas.coords(
+                self.seleccionado.id_canvas[2 + inputs + i],
+                new_x + size_x // 2 - 5, output_y - 5,
+                new_x + size_x // 2 + 5, output_y + 5
+            )
 
     def release(self, event):
         """Snap the selected object to the grid when released."""
@@ -190,9 +256,41 @@ class App(ctk.CTk):
             snapped_x, snapped_y = self.snap_to_grid(self.seleccionado.x, self.seleccionado.y)
             self.seleccionado.x = snapped_x
             self.seleccionado.y = snapped_y
-            r = 25
-            self.canvas.coords(self.seleccionado.id_canvas[0], snapped_x - r, snapped_y - r, snapped_x + r, snapped_y + r)
+
+            # Get the object's attributes
+            attributes = self.seleccionado.atributos
+            size_x = attributes.get("size_x", 100)
+            size_y = attributes.get("size_y", 100)
+            inputs = attributes.get("inputs", 0)
+            outputs = attributes.get("outputs", 0)
+
+            # Update the main shape (rectangle)
+            self.canvas.coords(
+                self.seleccionado.id_canvas[0],
+                snapped_x - size_x // 2, snapped_y - size_y // 2,
+                snapped_x + size_x // 2, snapped_y + size_y // 2
+            )
+
+            # Update the text position
             self.canvas.coords(self.seleccionado.id_canvas[1], snapped_x, snapped_y)
+
+            # Update the positions of inputs
+            for i in range(inputs):
+                input_y = snapped_y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
+                self.canvas.coords(
+                    self.seleccionado.id_canvas[2 + i],
+                    snapped_x - size_x // 2 - 5, input_y - 5,
+                    snapped_x - size_x // 2 + 5, input_y + 5
+                )
+
+            # Update the positions of outputs
+            for i in range(outputs):
+                output_y = snapped_y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
+                self.canvas.coords(
+                    self.seleccionado.id_canvas[2 + inputs + i],
+                    snapped_x + size_x // 2 - 5, output_y - 5,
+                    snapped_x + size_x // 2 + 5, output_y + 5
+                )
 
         # Deselect the object
         self.seleccionado = None
@@ -250,21 +348,21 @@ class App(ctk.CTk):
             messagebox.showerror("Invalid Input", "Please enter a valid integer for the grid size.")
 
     def open_create_menu(self):
-        """Open a menu to create a new object."""
+        """Open a menu to create a new object with inputs and outputs."""
         menu = ctk.CTkToplevel(self)
         menu.title("Create New Object")
-        menu.geometry("400x400")
+        menu.geometry("400x600")
 
         ctk.CTkLabel(menu, text="Object Name:").pack(pady=5)
         nombre = ctk.StringVar()
         ctk.CTkEntry(menu, textvariable=nombre).pack(pady=5)
 
         ctk.CTkLabel(menu, text="Size X:").pack(pady=5)
-        size_x = ctk.StringVar(value="50")
+        size_x = ctk.StringVar(value="100")
         ctk.CTkEntry(menu, textvariable=size_x).pack(pady=5)
 
         ctk.CTkLabel(menu, text="Size Y:").pack(pady=5)
-        size_y = ctk.StringVar(value="50")
+        size_y = ctk.StringVar(value="100")
         ctk.CTkEntry(menu, textvariable=size_y).pack(pady=5)
 
         propiedades_frame = ctk.CTkFrame(menu)
@@ -294,6 +392,21 @@ class App(ctk.CTk):
 
         ctk.CTkButton(menu, text="Add Property", command=agregar_propiedad).pack(pady=5)
 
+        # Inputs and Outputs Section
+        io_frame = ctk.CTkFrame(menu)
+        io_frame.pack(fill="both", expand=True, pady=10)
+
+        ctk.CTkLabel(io_frame, text="Inputs and Outputs:").pack(pady=5)
+
+        inputs = ctk.StringVar(value="0")
+        outputs = ctk.StringVar(value="0")
+
+        ctk.CTkLabel(io_frame, text="Number of Inputs:").pack(pady=5)
+        ctk.CTkEntry(io_frame, textvariable=inputs).pack(pady=5)
+
+        ctk.CTkLabel(io_frame, text="Number of Outputs:").pack(pady=5)
+        ctk.CTkEntry(io_frame, textvariable=outputs).pack(pady=5)
+
         def crear_objeto():
             """Create a new object with the entered properties."""
             if not nombre.get():
@@ -303,7 +416,9 @@ class App(ctk.CTk):
             try:
                 nuevo_objeto = {
                     "size_x": int(size_x.get()),
-                    "size_y": int(size_y.get())
+                    "size_y": int(size_y.get()),
+                    "inputs": int(inputs.get()),
+                   "outputs": int(outputs.get())
                 }
                 for prop_nombre, prop_valor in propiedades:
                     if prop_nombre.get() and prop_valor.get():
@@ -319,7 +434,6 @@ class App(ctk.CTk):
                 menu.destroy()
             except ValueError:
                 messagebox.showerror("Error", "Size X and Size Y must be integers.")
-
         ctk.CTkButton(menu, text="Create Object", command=crear_objeto).pack(pady=10)
 
     def update_object_menu(self):
