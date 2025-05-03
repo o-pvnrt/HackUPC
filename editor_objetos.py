@@ -33,6 +33,17 @@ class App(ctk.CTk):
         self.dx = self.dy = 0
         self.tool = "create"  # Default tool
         self.grid_size = 50  # Size of each grid cell
+        
+        # Cable variables
+        self.cable_type = None  # Current selected cable type
+        self.start_point = None  # Starting point for cable
+        self.start_object = None  # Starting object for cable
+        self.cables = []  # List to store all cables
+        self.is_input_start = None  # Flag to track if we started from input
+        self.current_cable_points = []  # Points for the cable being created
+        self.current_cable_segments = []  # Canvas IDs for temporary cable segments
+        self.temp_point = None  # For preview line
+        self.last_click_point = None  # Last clicked point for cable routing
 
         # Layout
         self.create_toolbars()
@@ -64,19 +75,42 @@ class App(ctk.CTk):
         # Object selection and export toolbar on the right
         object_frame = ctk.CTkFrame(self)
         object_frame.pack(side="right", fill="y", padx=5, pady=5)
-        ctk.CTkLabel(object_frame, text="Object:").pack(pady=5)
         
-        # Store the OptionMenu widget as an instance variable
+        # Object selection section
+        ctk.CTkLabel(object_frame, text="Object:").pack(pady=5)
         self.object_menu = ctk.CTkOptionMenu(object_frame, 
-                                             variable=self.objeto_actual, 
-                                             values=list(OBJETOS_DISPONIBLES.keys()))
+                                           variable=self.objeto_actual, 
+                                           values=list(OBJETOS_DISPONIBLES.keys()))
         self.object_menu.pack(pady=5)
         
-        # Moved "New Object" button here
+        # Object management buttons
         ctk.CTkButton(object_frame, text="New Object", 
-                      command=self.open_create_menu).pack(pady=5)
+                     command=self.open_create_menu).pack(pady=5)
         ctk.CTkButton(object_frame, text="Export to CSV", 
-                      command=self.export_to_csv).pack(pady=5)
+                     command=self.export_to_csv).pack(pady=5)
+        
+        # Cable section
+        ctk.CTkLabel(object_frame, text="Cables:").pack(pady=(20,5))
+        
+        # Water cable (blue)
+        ctk.CTkButton(object_frame, text="Water", fg_color="blue",
+                     command=lambda: self.select_cable("water"),
+                     width=120).pack(pady=2)
+        
+        # Electric cable (red)
+        ctk.CTkButton(object_frame, text="Electric", fg_color="red",
+                     command=lambda: self.select_cable("electric"),
+                     width=120).pack(pady=2)
+        
+        # Data cable (black)
+        ctk.CTkButton(object_frame, text="Data", fg_color="black",
+                     command=lambda: self.select_cable("data"),
+                     width=120).pack(pady=2)
+                     
+        # Delete cable button con icono de goma
+        ctk.CTkButton(object_frame, text="🧽", fg_color="gray",
+                     command=lambda: self.select_tool("delete_cable"),
+                     width=120).pack(pady=(10,2))
 
     def toggle_mode(self):
         """Toggle between light and dark mode."""
@@ -119,8 +153,13 @@ class App(ctk.CTk):
         self.draw_grid()
 
     def select_tool(self, tool):
-        """Set the current tool."""
         self.tool = tool
+        if tool == "delete_cable":
+            self.cleanup_cable_preview()
+            self.cable_type = None
+            self.canvas.config(cursor="circle")  # 'circle' es lo más parecido a una goma en Tkinter
+        else:
+            self.canvas.config(cursor="")
 
     def on_click(self, event):
         """Handle click events based on the selected tool."""
@@ -128,6 +167,10 @@ class App(ctk.CTk):
             self.place_object(event)
         elif self.tool == "select":
             self.select_object(event)
+        elif self.tool == "cable":
+            self.handle_cable_click(event)
+        elif self.tool == "delete_cable":
+            self.delete_cable_click(event)
 
     def on_drag(self, event):
         """Handle drag events."""
@@ -476,6 +519,413 @@ class App(ctk.CTk):
             self.canvas.delete(obj.id_canvas[1])
             # Remove the object from the list of objects
             self.objetos.remove(obj)
+
+    def select_cable(self, cable_type):
+        """Select a cable type for connection."""
+        self.tool = "cable"
+        self.cable_type = cable_type
+        self.start_point = None
+        self.start_object = None
+        self.is_input_start = None
+
+    def is_input_point(self, obj, x, y):
+        """Check if the clicked point is near an input connection point."""
+        if not obj:
+            return False
+        attributes = obj.atributos
+        size_x = attributes.get("size_x", 100)
+        size_y = attributes.get("size_y", 100)
+        inputs = attributes.get("inputs", 0)
+        
+        # Check each input point with increased detection area
+        for i in range(inputs):
+            input_y = obj.y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
+            input_x = obj.x - size_x // 2
+            if abs(x - input_x) < 15 and abs(y - input_y) < 15:  # Increased from 10 to 15
+                return True
+        return False
+
+    def is_output_point(self, obj, x, y):
+        """Check if the clicked point is near an output connection point."""
+        if not obj:
+            return False
+        attributes = obj.atributos
+        size_x = attributes.get("size_x", 100)
+        size_y = attributes.get("size_y", 100)
+        outputs = attributes.get("outputs", 0)
+        
+        # Check each output point with increased detection area
+        for i in range(outputs):
+            output_y = obj.y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
+            output_x = obj.x + size_x // 2
+            if abs(x - output_x) < 15 and abs(y - output_y) < 15:  # Increased from 10 to 15
+                return True
+        return False
+
+    def handle_cable_click(self, event):
+        """Handle clicks when creating cables."""
+        x, y = event.x, event.y
+        
+        closest = self.canvas.find_closest(event.x, event.y)[0]
+        obj = self.get_object_by_id(closest)
+
+        if not obj and not self.start_point:
+            return
+
+        # Cable colors and widths
+        cable_colors = {
+            "water": "blue",
+            "electric": "red",
+            "data": "black"
+        }
+        cable_width = 4
+
+        # If this is the start of a cable
+        if self.start_point is None:
+            # Check if we clicked on a valid connection point
+            is_input = self.is_input_point(obj, event.x, event.y)
+            is_output = self.is_output_point(obj, event.x, event.y)
+            
+            if not (is_input or is_output):
+                return
+            
+            # Check if there's already a connection at this point
+            if self.check_existing_connection(obj, event.x, event.y, is_input):
+                messagebox.showerror("Error", "There is already a connection at this point.")
+                return
+                
+            self.start_point = (event.x, event.y)
+            self.start_object = obj
+            self.is_input_start = is_input
+            self.current_cable_points = [self.start_point]
+            self.last_click_point = (x, y)
+            self._current_cable_segment_ids = []
+            
+            # Bind motion event for preview
+            self.canvas.bind("<Motion>", self.update_cable_preview)
+            
+        else:
+            # If we're in the middle of routing
+            if not obj:
+                # Add a new point to the cable
+                self.current_cable_points.append((x, y))
+                self.last_click_point = (x, y)
+                
+                # Draw permanent segment
+                self.draw_cable_segment(
+                    self.current_cable_points[-2],
+                    self.current_cable_points[-1],
+                    cable_colors[self.cable_type],
+                    cable_width
+                )
+                return
+                
+            # If we clicked on an object, check if it's a valid endpoint
+            is_input = self.is_input_point(obj, event.x, event.y)
+            is_output = self.is_output_point(obj, event.x, event.y)
+            
+            # Check if trying to connect to the same object
+            if obj == self.start_object:
+                messagebox.showerror("Error", "Cannot connect an object to itself.")
+                self.cleanup_cable_preview()
+                return
+            
+            # Validate connection (input to output or output to input only)
+            if (self.is_input_start and is_output) or (not self.is_input_start and is_input):
+                # Check if there's already a connection at this point
+                if self.check_existing_connection(obj, event.x, event.y, is_input):
+                    messagebox.showerror("Error", "There is already a connection at this point.")
+                    return
+                
+                # Add the final point
+                end_point = (event.x, event.y)
+                self.current_cable_points.append(end_point)
+                
+                # Draw all segments permanently
+                for i in range(len(self.current_cable_points) - 1):
+                    self.draw_cable_segment(
+                        self.current_cable_points[i],
+                        self.current_cable_points[i + 1],
+                        cable_colors[self.cable_type],
+                        cable_width
+                    )
+                
+                # Store the cable information
+                self.cables.append({
+                    'type': self.cable_type,
+                    'points': self.current_cable_points.copy(),
+                    'start_obj': self.start_object,
+                    'end_obj': obj,
+                    'segment_ids': getattr(self, "_current_cable_segment_ids", [])
+                })
+                self._current_cable_segment_ids = []
+                
+            # Reset cable creation state
+            self.cleanup_cable_preview()
+
+    def update_cable_preview(self, event):
+        """Update the preview line while routing a cable."""
+        if not self.start_point or not self.last_click_point:
+            return
+            
+        x, y = event.x, event.y
+        
+        # Check if we're hovering over a valid connection point
+        closest = self.canvas.find_closest(event.x, event.y)[0]
+        obj = self.get_object_by_id(closest)
+        
+        # Only check for valid connections if we're near an object
+        if obj and closest in obj.id_canvas:  # Ensure we're actually over the object
+            is_input = self.is_input_point(obj, event.x, event.y)
+            is_output = self.is_output_point(obj, event.x, event.y)
+            
+            # If we started from input and found an output, or vice versa
+            if ((self.is_input_start and is_output) or (not self.is_input_start and is_input)) and obj != self.start_object:
+                # Complete the cable automatically
+                end_point = (event.x, event.y)
+                if abs(x - self.last_click_point[0]) > abs(y - self.last_click_point[1]):
+                    # Horizontal then vertical
+                    self.current_cable_points.extend([
+                        (x, self.last_click_point[1]),
+                        end_point
+                    ])
+                else:
+                    # Vertical then horizontal
+                    self.current_cable_points.extend([
+                        (self.last_click_point[0], y),
+                        end_point
+                    ])
+                
+                cable_colors = {
+                    "water": "blue",
+                    "electric": "red",
+                    "data": "black"
+                }
+                cable_width = 4
+                
+                # Draw all segments permanently
+                for i in range(len(self.current_cable_points) - 1):
+                    self.draw_cable_segment(
+                        self.current_cable_points[i],
+                        self.current_cable_points[i + 1],
+                        cable_colors[self.cable_type],
+                        cable_width
+                    )
+                
+                # Store the cable information
+                self.cables.append({
+                    'type': self.cable_type,
+                    'points': self.current_cable_points.copy(),
+                    'start_obj': self.start_object,
+                    'end_obj': obj,
+                    'segment_ids': getattr(self, "_current_cable_segment_ids", [])
+                })
+                self._current_cable_segment_ids = []
+                
+                # Clean up and finish cable creation
+                self.cleanup_cable_preview()
+                return
+        
+        # Delete previous preview
+        for segment_id in self.current_cable_segments:
+            self.canvas.delete(segment_id)
+        self.current_cable_segments = []
+        
+        # Calculate orthogonal segments
+        last_x, last_y = self.last_click_point
+        dx = x - last_x
+        dy = y - last_y
+        
+        cable_colors = {
+            "water": "blue",
+            "electric": "red",
+            "data": "black"
+        }
+        preview_width = 4
+        
+        # Draw preview segments
+        if abs(dx) > abs(dy):
+            # Draw horizontal first
+            self.current_cable_segments.append(
+                self.canvas.create_line(
+                    last_x, last_y, x, last_y,
+                    fill=cable_colors[self.cable_type],
+                    width=preview_width,
+                    dash=(5, 5)
+                )
+            )
+            self.current_cable_segments.append(
+                self.canvas.create_line(
+                    x, last_y, x, y,
+                    fill=cable_colors[self.cable_type],
+                    width=preview_width,
+                    dash=(5, 5)
+                )
+            )
+        else:
+            # Draw vertical first
+            self.current_cable_segments.append(
+                self.canvas.create_line(
+                    last_x, last_y, last_x, y,
+                    fill=cable_colors[self.cable_type],
+                    width=preview_width,
+                    dash=(5, 5)
+                )
+            )
+            self.current_cable_segments.append(
+                self.canvas.create_line(
+                    last_x, y, x, y,
+                    fill=cable_colors[self.cable_type],
+                    width=preview_width,
+                    dash=(5, 5)
+                )
+            )
+
+    def draw_cable_segment(self, start, end, color, width):
+        """Draw a permanent cable segment between two points."""
+        start_x, start_y = start
+        end_x, end_y = end
+        
+        # Calculate orthogonal segments
+        dx = end_x - start_x
+        dy = end_y - start_y
+        
+        segment_ids = []
+        
+        if abs(dx) > abs(dy):
+            # Draw horizontal then vertical
+            id1 = self.canvas.create_line(
+                start_x, start_y, end_x, start_y,
+                fill=color, width=width
+            )
+            id2 = self.canvas.create_line(
+                end_x, start_y, end_x, end_y,
+                fill=color, width=width
+            )
+            segment_ids.extend([id1, id2])
+        else:
+            # Draw vertical then horizontal
+            id1 = self.canvas.create_line(
+                start_x, start_y, start_x, end_y,
+                fill=color, width=width
+            )
+            id2 = self.canvas.create_line(
+                start_x, end_y, end_x, end_y,
+                fill=color, width=width
+            )
+            segment_ids.extend([id1, id2])
+        
+        if not hasattr(self, "_current_cable_segment_ids"):
+            self._current_cable_segment_ids = []
+        self._current_cable_segment_ids.extend(segment_ids)
+
+    def cleanup_cable_preview(self):
+        """Clean up the cable preview and reset cable creation state."""
+        # Delete preview segments
+        for segment_id in self.current_cable_segments:
+            self.canvas.delete(segment_id)
+        
+        # Unbind motion event
+        self.canvas.unbind("<Motion>")
+        
+        # Reset cable creation state
+        self.start_point = None
+        self.start_object = None
+        self.is_input_start = None
+        self.current_cable_points = []
+        self.current_cable_segments = []
+        self.last_click_point = None
+
+    def check_existing_connection(self, obj, x, y, is_input):
+        """Check if there's already a connection at this point."""
+        for cable in self.cables:
+            if is_input:
+                # Si estamos comprobando un input, verificar si este objeto es el final de algún cable
+                if (cable['end_obj'] == obj and 
+                    abs(cable['points'][-1][0] - x) < 15 and 
+                    abs(cable['points'][-1][1] - y) < 15):
+                    return True
+            else:
+                # Si estamos comprobando un output, verificar si este objeto es el inicio de algún cable
+                if (cable['start_obj'] == obj and 
+                    abs(cable['points'][0][0] - x) < 15 and 
+                    abs(cable['points'][0][1] - y) < 15):
+                    return True
+        return False
+
+    def delete_cable_click(self, event):
+        """Handle clicks when deleting cables."""
+        if self.tool != "delete_cable":
+            return
+            
+        x, y = event.x, event.y
+        
+        # Buscar el cable más cercano al punto de click
+        min_distance = float('inf')
+        cable_to_delete = None
+        
+        for cable in self.cables[:]:  # Usar una copia de la lista para evitar problemas durante la iteración
+            for i in range(len(cable['points']) - 1):
+                start = cable['points'][i]
+                end = cable['points'][i + 1]
+                
+                # Calcular la distancia del punto al segmento
+                distance = self.point_to_line_segment(x, y, start[0], start[1], end[0], end[1])
+                
+                if distance < min_distance and distance < 15:  # Aumentado a 15 pixels de tolerancia
+                    min_distance = distance
+                    cable_to_delete = cable
+        
+        if cable_to_delete:
+            # Borrar todos los segmentos del cable
+            for seg_id in cable_to_delete.get('segment_ids', []):
+                self.canvas.delete(seg_id)
+            
+            # Eliminar el cable de la lista
+            self.cables.remove(cable_to_delete)
+
+    def point_to_line_segment(self, px, py, x1, y1, x2, y2):
+        """Calculate the shortest distance from a point to a line segment."""
+        A = px - x1
+        B = py - y1
+        C = x2 - x1
+        D = y2 - y1
+
+        dot = A * C + B * D
+        len_sq = C * C + D * D
+
+        if len_sq == 0:
+            # El punto está en el extremo del segmento
+            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+
+        param = dot / len_sq
+
+        if param < 0:
+            # El punto más cercano está fuera del segmento, cerca del punto inicial
+            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+        elif param > 1:
+            # El punto más cercano está fuera del segmento, cerca del punto final
+            return ((px - x2) ** 2 + (py - y2) ** 2) ** 0.5
+        else:
+            # El punto más cercano está dentro del segmento
+            x = x1 + param * C
+            y = y1 + param * D
+            return ((px - x) ** 2 + (py - y) ** 2) ** 0.5
+
+    def is_same_line_segment(self, coords, start, end):
+        """Check if a line segment matches the given start and end points."""
+        # Permitir una pequeña tolerancia en la comparación
+        tolerance = 1
+        
+        # Comprobar en ambas direcciones (start->end y end->start)
+        return ((abs(coords[0] - start[0]) < tolerance and 
+                abs(coords[1] - start[1]) < tolerance and
+                abs(coords[2] - end[0]) < tolerance and
+                abs(coords[3] - end[1]) < tolerance) or
+                (abs(coords[0] - end[0]) < tolerance and
+                 abs(coords[1] - end[1]) < tolerance and
+                 abs(coords[2] - start[0]) < tolerance and
+                 abs(coords[3] - start[1]) < tolerance))
 
 if __name__ == "__main__":
     app = App()
