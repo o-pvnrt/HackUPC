@@ -130,9 +130,9 @@ class App(ctk.CTk):
         snapped_x, snapped_y = self.snap_to_grid(event.x, event.y)
         obj = Objeto(obj_type, snapped_x, snapped_y, attributes)
 
-        r = 25
+        r = 25  # Half the side length of the square
         color = {"Motor": "red", "Sensor": "blue", "Caja": "green"}.get(obj_type, "gray")
-        id_canvas = self.canvas.create_oval(snapped_x - r, snapped_y - r, snapped_x + r, snapped_y + r, fill=color)
+        id_canvas = self.canvas.create_rectangle(snapped_x - r, snapped_y - r, snapped_x + r, snapped_y + r, fill=color)
         text_id = self.canvas.create_text(snapped_x, snapped_y, text=obj_type, fill="white")
 
         obj.id_canvas = (id_canvas, text_id)
@@ -147,30 +147,41 @@ class App(ctk.CTk):
 
     def drag(self, event):
         """Drag an object."""
-        closest = self.canvas.find_closest(event.x, event.y)[0]
-        obj = self.get_object_by_id(closest)
-        if not obj:
-            return
-
         if self.seleccionado is None:
+            # Find the closest object to the mouse pointer
+            closest = self.canvas.find_closest(event.x, event.y)[0]
+            obj = self.get_object_by_id(closest)
+            if not obj:
+                return
+
+            # Select the object and calculate the initial offset
             self.seleccionado = obj
             self.dx = event.x - obj.x
             self.dy = event.y - obj.y
 
-        # Calculate the new position dynamically
+        # Calculate the new position dynamically without snapping
         new_x = event.x - self.dx
         new_y = event.y - self.dy
 
-        # Snap to grid dynamically
-        snapped_x, snapped_y = self.snap_to_grid(new_x, new_y)
-        obj.x = snapped_x
-        obj.y = snapped_y
+        # Update the object's position
+        self.seleccionado.x = new_x
+        self.seleccionado.y = new_y
         r = 25
-        self.canvas.coords(obj.id_canvas[0], snapped_x - r, snapped_y - r, snapped_x + r, snapped_y + r)
-        self.canvas.coords(obj.id_canvas[1], snapped_x, snapped_y)
+        self.canvas.coords(self.seleccionado.id_canvas[0], new_x - r, new_y - r, new_x + r, new_y + r)
+        self.canvas.coords(self.seleccionado.id_canvas[1], new_x, new_y)
 
     def release(self, event):
-        """Release the selected object."""
+        """Snap the selected object to the grid when released."""
+        if self.seleccionado:
+            # Snap to the nearest grid point
+            snapped_x, snapped_y = self.snap_to_grid(self.seleccionado.x, self.seleccionado.y)
+            self.seleccionado.x = snapped_x
+            self.seleccionado.y = snapped_y
+            r = 25
+            self.canvas.coords(self.seleccionado.id_canvas[0], snapped_x - r, snapped_y - r, snapped_x + r, snapped_y + r)
+            self.canvas.coords(self.seleccionado.id_canvas[1], snapped_x, snapped_y)
+
+        # Deselect the object
         self.seleccionado = None
 
     def get_object_by_id(self, canvas_id):
