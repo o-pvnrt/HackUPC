@@ -46,28 +46,37 @@ class App(ctk.CTk):
 
         # Add tool buttons
         for tool in ["Create Figure", "Drag", "Select"]:
-            ctk.CTkButton(tool_frame, text=tool, command=lambda t=tool.lower().replace(" ", "_"): self.select_tool(t)).pack(side="left", padx=5, pady=5)
+            ctk.CTkButton(tool_frame, text=tool, 
+                         command=lambda t=tool.lower().replace(" ", "_"): self.select_tool(t)
+                         ).pack(side="left", padx=5, pady=5)
 
         # Add grid size input
         ctk.CTkLabel(tool_frame, text="Grid Size:").pack(side="left", padx=5, pady=5)
         self.grid_size_entry = ctk.CTkEntry(tool_frame, width=50)
-        self.grid_size_entry.insert(0, str(self.grid_size))  # Set default value
+        self.grid_size_entry.insert(0, str(self.grid_size))
         self.grid_size_entry.pack(side="left", padx=5, pady=5)
-        self.grid_size_entry.bind("<Return>", self.update_grid_size)  # Bind Enter key to update grid size
+        self.grid_size_entry.bind("<Return>", self.update_grid_size)
 
         # Add light/dark mode switch
         mode_switch = ctk.CTkSwitch(tool_frame, text="Dark Mode", command=self.toggle_mode)
         mode_switch.pack(side="right", padx=5, pady=5)
 
-        # Add button to open the create menu
-        ctk.CTkButton(tool_frame, text="New Object", command=self.open_create_menu).pack(side="right", padx=5, pady=5)
-
         # Object selection and export toolbar on the right
         object_frame = ctk.CTkFrame(self)
         object_frame.pack(side="right", fill="y", padx=5, pady=5)
         ctk.CTkLabel(object_frame, text="Object:").pack(pady=5)
-        ctk.CTkOptionMenu(object_frame, variable=self.objeto_actual, values=list(OBJETOS_DISPONIBLES.keys())).pack(pady=5)
-        ctk.CTkButton(object_frame, text="Export to Excel", command=self.export_to_excel).pack(pady=5)
+        
+        # Store the OptionMenu widget as an instance variable
+        self.object_menu = ctk.CTkOptionMenu(object_frame, 
+                                             variable=self.objeto_actual, 
+                                             values=list(OBJETOS_DISPONIBLES.keys()))
+        self.object_menu.pack(pady=5)
+        
+        # Moved "New Object" button here
+        ctk.CTkButton(object_frame, text="New Object", 
+                      command=self.open_create_menu).pack(pady=5)
+        ctk.CTkButton(object_frame, text="Export to CSV", 
+                      command=self.export_to_csv).pack(pady=5)
 
     def toggle_mode(self):
         """Toggle between light and dark mode."""
@@ -316,6 +325,16 @@ class App(ctk.CTk):
             df.to_excel(file_path, index=False)
             messagebox.showinfo("Export Successful", f"Data exported to {file_path}")
 
+    def export_to_csv(self):
+        """Export object data to a CSV file."""
+        data = [{"Type": obj.tipo, "X": obj.x, "Y": obj.y, **obj.atributos} for obj in self.objetos]
+        df = pd.DataFrame(data)
+        file_name = simpledialog.askstring("Export to CSV", "Enter file name (without extension):")
+        if file_name:
+            file_path = f"{file_name}.csv"  # Automatically add .csv extension
+            df.to_csv(file_path, index=False)
+            messagebox.showinfo("Export Successful", f"Data exported to {file_path}")
+
     def update_grid_size(self, event=None):
         """Update the grid size based on user input."""
         try:
@@ -389,22 +408,38 @@ class App(ctk.CTk):
         ctk.CTkEntry(io_frame, textvariable=outputs).pack(pady=5)
 
         def crear_objeto():
-            """Create a new object with the entered properties, inputs, and outputs."""
-            nuevo_objeto = {
-                "size_x": int(size_x.get()),
-                "size_y": int(size_y.get()),
-                "inputs": int(inputs.get()),
-                "outputs": int(outputs.get())
-            }
-            for prop_nombre, prop_valor in propiedades:
-                if prop_nombre.get() and prop_valor.get():
-                    nuevo_objeto[prop_nombre.get()] = prop_valor.get()
+            """Create a new object with the entered properties."""
+            if not nombre.get():
+                messagebox.showerror("Error", "Object name cannot be empty.")
+                return
 
-            OBJETOS_DISPONIBLES[nombre.get()] = nuevo_objeto
-            self.objeto_actual.set(nombre.get())
-            menu.destroy()
+            try:
+                nuevo_objeto = {
+                    "size_x": int(size_x.get()),
+                    "size_y": int(size_y.get()),
+                    "inputs": int(inputs.get()),
+                   "outputs": int(outputs.get())
+                }
+                for prop_nombre, prop_valor in propiedades:
+                    if prop_nombre.get() and prop_valor.get():
+                        nuevo_objeto[prop_nombre.get()] = prop_valor.get()
 
+                # Add the new object to the predefined objects
+                OBJETOS_DISPONIBLES[nombre.get()] = nuevo_objeto
+
+                # Update the dropdown menu
+                self.object_menu.configure(values=list(OBJETOS_DISPONIBLES.keys()))
+                self.objeto_actual.set(nombre.get())
+
+                menu.destroy()
+            except ValueError:
+                messagebox.showerror("Error", "Size X and Size Y must be integers.")
         ctk.CTkButton(menu, text="Create Object", command=crear_objeto).pack(pady=10)
+
+    def update_object_menu(self):
+        """Update the object selection menu with the latest objects."""
+        menu = self.nametowidget(self.objeto_actual._name)  # Access the OptionMenu widget
+        menu.configure(values=list(OBJETOS_DISPONIBLES.keys()))
 
     def delete_object(self, event):
         """Delete an object from the canvas."""
