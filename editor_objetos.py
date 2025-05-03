@@ -58,6 +58,9 @@ class App(ctk.CTk):
         mode_switch = ctk.CTkSwitch(tool_frame, text="Dark Mode", command=self.toggle_mode)
         mode_switch.pack(side="right", padx=5, pady=5)
 
+        # Add button to open the create menu
+        ctk.CTkButton(tool_frame, text="New Object", command=self.open_create_menu).pack(side="right", padx=5, pady=5)
+
         # Object selection and export toolbar on the right
         object_frame = ctk.CTkFrame(self)
         object_frame.pack(side="right", fill="y", padx=5, pady=5)
@@ -81,10 +84,11 @@ class App(ctk.CTk):
         self.canvas = ctk.CTkCanvas(self, bg="white")
         self.canvas.pack(fill="both", expand=True, padx=5, pady=5)
         self.canvas.bind("<Configure>", self.on_canvas_resize)  # Handle resizing
-        self.canvas.bind("<Button-1>", self.on_click)
-        self.canvas.bind("<Double-Button-1>", self.edit_object)
-        self.canvas.bind("<B1-Motion>", self.on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self.release)
+        self.canvas.bind("<Button-1>", self.on_click)  # Left-click for selecting/placing
+        self.canvas.bind("<Button-3>", self.delete_object)  # Right-click for deleting
+        self.canvas.bind("<Double-Button-1>", self.edit_object)  # Double-click for editing
+        self.canvas.bind("<B1-Motion>", self.on_drag)  # Dragging
+        self.canvas.bind("<ButtonRelease-1>", self.release)  # Release after dragging
         self.draw_grid()
 
     def draw_grid(self):
@@ -225,7 +229,79 @@ class App(ctk.CTk):
                 messagebox.showerror("Invalid Input", "Grid size must be a positive integer.")
         except ValueError:
             messagebox.showerror("Invalid Input", "Please enter a valid integer for the grid size.")
-        
+
+    def open_create_menu(self):
+        """Open a menu to create a new object."""
+        menu = ctk.CTkToplevel(self)
+        menu.title("Create New Object")
+        menu.geometry("400x400")
+
+        ctk.CTkLabel(menu, text="Object Name:").pack(pady=5)
+        nombre = ctk.StringVar()
+        ctk.CTkEntry(menu, textvariable=nombre).pack(pady=5)
+
+        ctk.CTkLabel(menu, text="Size X:").pack(pady=5)
+        size_x = ctk.StringVar(value="50")
+        ctk.CTkEntry(menu, textvariable=size_x).pack(pady=5)
+
+        ctk.CTkLabel(menu, text="Size Y:").pack(pady=5)
+        size_y = ctk.StringVar(value="50")
+        ctk.CTkEntry(menu, textvariable=size_y).pack(pady=5)
+
+        propiedades_frame = ctk.CTkFrame(menu)
+        propiedades_frame.pack(fill="both", expand=True, pady=10)
+
+        ctk.CTkLabel(propiedades_frame, text="New Properties:").pack(pady=5)
+        propiedades = []
+
+        def agregar_propiedad():
+            """Add a new property to the object."""
+            prop_frame = ctk.CTkFrame(propiedades_frame)
+            prop_frame.pack(fill="x", pady=5)
+
+            prop_nombre = ctk.StringVar()
+            prop_valor = ctk.StringVar()
+
+            ctk.CTkEntry(prop_frame, textvariable=prop_nombre, placeholder_text="Name").pack(side="left", padx=5)
+            ctk.CTkEntry(prop_frame, textvariable=prop_valor, placeholder_text="Value").pack(side="left", padx=5)
+
+            def eliminar_propiedad():
+                """Remove the current property."""
+                propiedades.remove((prop_nombre, prop_valor))
+                prop_frame.destroy()
+
+            ctk.CTkButton(prop_frame, text="X", command=eliminar_propiedad, width=20).pack(side="left", padx=5)
+            propiedades.append((prop_nombre, prop_valor))
+
+        ctk.CTkButton(menu, text="Add Property", command=agregar_propiedad).pack(pady=5)
+
+        def crear_objeto():
+            """Create a new object with the entered properties."""
+            nuevo_objeto = {
+                "size_x": int(size_x.get()),
+                "size_y": int(size_y.get())
+            }
+            for prop_nombre, prop_valor in propiedades:
+                if prop_nombre.get() and prop_valor.get():
+                    nuevo_objeto[prop_nombre.get()] = prop_valor.get()
+
+            OBJETOS_DISPONIBLES[nombre.get()] = nuevo_objeto
+            self.objeto_actual.set(nombre.get())
+            menu.destroy()
+
+        ctk.CTkButton(menu, text="Create Object", command=crear_objeto).pack(pady=10)
+
+    def delete_object(self, event):
+        """Delete an object from the canvas."""
+        closest = self.canvas.find_closest(event.x, event.y)[0]
+        obj = self.get_object_by_id(closest)
+        if obj:
+            # Delete the object's graphical elements from the canvas
+            self.canvas.delete(obj.id_canvas[0])
+            self.canvas.delete(obj.id_canvas[1])
+            # Remove the object from the list of objects
+            self.objetos.remove(obj)
+
 if __name__ == "__main__":
     app = App()
     app.mainloop()
