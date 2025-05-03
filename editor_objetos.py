@@ -111,15 +111,12 @@ class App(ctk.CTk):
         for y in range(0, height, self.grid_size):
             self.canvas.create_line(0, y, width, y, fill="lightgray", tags="grid_line")
 
+        # Ensure all figures are above the grid
+        self.canvas.tag_raise("figure")
+
     def on_canvas_resize(self, event):
         """Redraw the grid when the canvas is resized."""
         self.draw_grid()
-
-    def snap_to_grid(self, x, y):
-        """Snap coordinates to the nearest grid point."""
-        snapped_x = round(x / self.grid_size) * self.grid_size
-        snapped_y = round(y / self.grid_size) * self.grid_size
-        return snapped_x, snapped_y
 
     def select_tool(self, tool):
         """Set the current tool."""
@@ -141,8 +138,9 @@ class App(ctk.CTk):
         """Place a new object on the canvas."""
         obj_type = self.objeto_actual.get()
         attributes = OBJETOS_DISPONIBLES[obj_type]
-        snapped_x, snapped_y = self.snap_to_grid(event.x, event.y)
-        obj = Objeto(obj_type, snapped_x, snapped_y, attributes)
+        # Place at exact coordinates, not snapped
+        x, y = event.x, event.y
+        obj = Objeto(obj_type, x, y, attributes)
 
         size_x = attributes.get("size_x", 100)
         size_y = attributes.get("size_y", 100)
@@ -152,29 +150,29 @@ class App(ctk.CTk):
         # Draw the main shape (rectangle)
         color = {"Motor": "red", "Sensor": "blue", "Caja": "green"}.get(obj_type, "gray")
         id_canvas = [self.canvas.create_rectangle(
-            snapped_x - size_x // 2, snapped_y - size_y // 2,
-            snapped_x + size_x // 2, snapped_y + size_y // 2,
+            x - size_x // 2, y - size_y // 2,
+            x + size_x // 2, y + size_y // 2,
             fill=color, tags="figure"
         )]
-        text_id = self.canvas.create_text(snapped_x, snapped_y, text=obj_type, fill="white", tags="figure")
+        text_id = self.canvas.create_text(x, y, text=obj_type, fill="white", tags="figure")
         id_canvas.append(text_id)
 
         # Draw inputs as small circles on the left edge
         for i in range(inputs):
-            input_y = snapped_y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
+            input_y = y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
             input_id = self.canvas.create_oval(
-                snapped_x - size_x // 2 - 5, input_y - 5,
-                snapped_x - size_x // 2 + 5, input_y + 5,
+                x - size_x // 2 - 5, input_y - 5,
+                x - size_x // 2 + 5, input_y + 5,
                 fill="black", tags="figure"
             )
             id_canvas.append(input_id)
 
         # Draw outputs as small circles on the right edge
         for i in range(outputs):
-            output_y = snapped_y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
+            output_y = y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
             output_id = self.canvas.create_oval(
-                snapped_x + size_x // 2 - 5, output_y - 5,
-                snapped_x + size_x // 2 + 5, output_y + 5,
+                x + size_x // 2 - 5, output_y - 5,
+                x + size_x // 2 + 5, output_y + 5,
                 fill="black", tags="figure"
             )
             id_canvas.append(output_id)
@@ -250,12 +248,10 @@ class App(ctk.CTk):
             )
 
     def release(self, event):
-        """Snap the selected object to the grid when released."""
+        """Release the selected object without snapping to grid."""
         if self.seleccionado:
-            # Snap to the nearest grid point
-            snapped_x, snapped_y = self.snap_to_grid(self.seleccionado.x, self.seleccionado.y)
-            self.seleccionado.x = snapped_x
-            self.seleccionado.y = snapped_y
+            # Use the current position, do not snap
+            x, y = self.seleccionado.x, self.seleccionado.y
 
             # Get the object's attributes
             attributes = self.seleccionado.atributos
@@ -267,29 +263,29 @@ class App(ctk.CTk):
             # Update the main shape (rectangle)
             self.canvas.coords(
                 self.seleccionado.id_canvas[0],
-                snapped_x - size_x // 2, snapped_y - size_y // 2,
-                snapped_x + size_x // 2, snapped_y + size_y // 2
+                x - size_x // 2, y - size_y // 2,
+                x + size_x // 2, y + size_y // 2
             )
 
             # Update the text position
-            self.canvas.coords(self.seleccionado.id_canvas[1], snapped_x, snapped_y)
+            self.canvas.coords(self.seleccionado.id_canvas[1], x, y)
 
             # Update the positions of inputs
             for i in range(inputs):
-                input_y = snapped_y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
+                input_y = y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
                 self.canvas.coords(
                     self.seleccionado.id_canvas[2 + i],
-                    snapped_x - size_x // 2 - 5, input_y - 5,
-                    snapped_x - size_x // 2 + 5, input_y + 5
+                    x - size_x // 2 - 5, input_y - 5,
+                    x - size_x // 2 + 5, input_y + 5
                 )
 
             # Update the positions of outputs
             for i in range(outputs):
-                output_y = snapped_y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
+                output_y = y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
                 self.canvas.coords(
                     self.seleccionado.id_canvas[2 + inputs + i],
-                    snapped_x + size_x // 2 - 5, output_y - 5,
-                    snapped_x + size_x // 2 + 5, output_y + 5
+                    x + size_x // 2 - 5, output_y - 5,
+                    x + size_x // 2 + 5, output_y + 5
                 )
 
         # Deselect the object
@@ -349,23 +345,43 @@ class App(ctk.CTk):
 
     def open_create_menu(self):
         """Open a menu to create a new object with inputs and outputs."""
-        menu = ctk.CTkToplevel(self)
-        menu.title("Create New Object")
-        menu.geometry("400x600")
+        if hasattr(self, "create_menu_window") and self.create_menu_window is not None and self.create_menu_window.winfo_exists():
+            # If the window already exists, bring it to the front
+            self.create_menu_window.lift()
+            return
 
-        ctk.CTkLabel(menu, text="Object Name:").pack(pady=5)
+        # Create the new window
+        self.create_menu_window = ctk.CTkToplevel(self)
+        self.create_menu_window.title("Create New Object")
+        self.create_menu_window.geometry("400x600")
+
+        # Position the window to the right-hand side of the program window
+        main_x = self.winfo_rootx()  # Get the absolute x-coordinate of the main window
+        main_y = self.winfo_rooty()  # Get the absolute y-coordinate of the main window
+        main_width = self.winfo_width()  # Get the width of the main window
+        screen_width = self.winfo_screenwidth()  # Get the width of the screen
+
+        # Ensure the new window doesn't go off-screen
+        new_x = min(main_x + main_width + 10, screen_width - 400)  # 400 is the width of the new window
+        self.create_menu_window.geometry(f"+{new_x}+{main_y}")
+
+        # Make the window modal
+        self.create_menu_window.transient(self)
+        self.create_menu_window.grab_set()
+
+        ctk.CTkLabel(self.create_menu_window, text="Object Name:").pack(pady=5)
         nombre = ctk.StringVar()
-        ctk.CTkEntry(menu, textvariable=nombre).pack(pady=5)
+        ctk.CTkEntry(self.create_menu_window, textvariable=nombre).pack(pady=5)
 
-        ctk.CTkLabel(menu, text="Size X:").pack(pady=5)
+        ctk.CTkLabel(self.create_menu_window, text="Size X:").pack(pady=5)
         size_x = ctk.StringVar(value="100")
-        ctk.CTkEntry(menu, textvariable=size_x).pack(pady=5)
+        ctk.CTkEntry(self.create_menu_window, textvariable=size_x).pack(pady=5)
 
-        ctk.CTkLabel(menu, text="Size Y:").pack(pady=5)
+        ctk.CTkLabel(self.create_menu_window, text="Size Y:").pack(pady=5)
         size_y = ctk.StringVar(value="100")
-        ctk.CTkEntry(menu, textvariable=size_y).pack(pady=5)
+        ctk.CTkEntry(self.create_menu_window, textvariable=size_y).pack(pady=5)
 
-        propiedades_frame = ctk.CTkFrame(menu)
+        propiedades_frame = ctk.CTkFrame(self.create_menu_window)
         propiedades_frame.pack(fill="both", expand=True, pady=10)
 
         ctk.CTkLabel(propiedades_frame, text="New Properties:").pack(pady=5)
@@ -390,10 +406,10 @@ class App(ctk.CTk):
             ctk.CTkButton(prop_frame, text="X", command=eliminar_propiedad, width=20).pack(side="left", padx=5)
             propiedades.append((prop_nombre, prop_valor))
 
-        ctk.CTkButton(menu, text="Add Property", command=agregar_propiedad).pack(pady=5)
+        ctk.CTkButton(self.create_menu_window, text="Add Property", command=agregar_propiedad).pack(pady=5)
 
         # Inputs and Outputs Section
-        io_frame = ctk.CTkFrame(menu)
+        io_frame = ctk.CTkFrame(self.create_menu_window)
         io_frame.pack(fill="both", expand=True, pady=10)
 
         ctk.CTkLabel(io_frame, text="Inputs and Outputs:").pack(pady=5)
@@ -408,7 +424,7 @@ class App(ctk.CTk):
         ctk.CTkEntry(io_frame, textvariable=outputs).pack(pady=5)
 
         def crear_objeto():
-            """Create a new object with the entered properties."""
+            """Create a new object with the entered properties, inputs, and outputs."""
             if not nombre.get():
                 messagebox.showerror("Error", "Object name cannot be empty.")
                 return
@@ -418,7 +434,7 @@ class App(ctk.CTk):
                     "size_x": int(size_x.get()),
                     "size_y": int(size_y.get()),
                     "inputs": int(inputs.get()),
-                   "outputs": int(outputs.get())
+                    "outputs": int(outputs.get())
                 }
                 for prop_nombre, prop_valor in propiedades:
                     if prop_nombre.get() and prop_valor.get():
@@ -431,10 +447,19 @@ class App(ctk.CTk):
                 self.object_menu.configure(values=list(OBJETOS_DISPONIBLES.keys()))
                 self.objeto_actual.set(nombre.get())
 
-                menu.destroy()
+                self.create_menu_window.destroy()
+                self.create_menu_window = None  # Reset the reference
             except ValueError:
-                messagebox.showerror("Error", "Size X and Size Y must be integers.")
-        ctk.CTkButton(menu, text="Create Object", command=crear_objeto).pack(pady=10)
+                messagebox.showerror("Error", "Size X, Size Y, Inputs, and Outputs must be integers.")
+
+        ctk.CTkButton(self.create_menu_window, text="Create Object", command=crear_objeto).pack(pady=10)
+
+        # Handle window close event
+        def on_close():
+            self.create_menu_window.destroy()
+            self.create_menu_window = None
+
+        self.create_menu_window.protocol("WM_DELETE_WINDOW", on_close)
 
     def update_object_menu(self):
         """Update the object selection menu with the latest objects."""
