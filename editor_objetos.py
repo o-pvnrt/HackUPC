@@ -17,11 +17,12 @@ class Objeto:
         self.y = y
         self.atributos = atributos.copy()
         self.id_canvas = None
-
+        self.io_points = []
+        
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("2D Object Editor with Grid")
+        self.title("DaceCAD")
         self.geometry("900x700")
         ctk.set_appearance_mode("System")  # Options: "System", "Dark", "Light"
         ctk.set_default_color_theme("blue")  # Options: "blue", "green", "dark-blue"
@@ -32,62 +33,61 @@ class App(ctk.CTk):
         self.seleccionado = None
         self.dx = self.dy = 0
         self.tool = "create"  # Default tool
-        self.grid_size = 50  # Size of each grid cell
+        self.grid_size = 30  # Size of each grid cell
         
-        # Cable variables
-        self.cable_type = None  # Current selected cable type
-        self.start_point = None  # Starting point for cable
-        self.start_object = None  # Starting object for cable
-        self.cables = []  # List to store all cables
-        self.is_input_start = None  # Flag to track if we started from input
-        self.current_cable_points = []  # Points for the cable being created
-        self.current_cable_segments = []  # Canvas IDs for temporary cable segments
-        self.temp_point = None  # For preview line
-        self.last_click_point = None  # Last clicked point for cable routing
+        # Cable variables (inicializadas correctamente)
+        self.cable_type = None
+        self.start_point = None
+        self.start_object = None
+        self.cables = []
+        self.is_input_start = None
+        self.current_cable_points = []
+        self.current_cable_segments = []
+        self.last_click_point = None
+        self._current_cable_segment_ids = []
 
         # Layout
         self.create_toolbars()
         self.create_canvas()
+        self.bind('<Escape>', lambda event: self.select_tool('select'))
+        self.bind('<Delete>', lambda event: self.select_tool('erase'))
 
     def create_toolbars(self):
         """Create the toolbars."""
-        # Tool selection toolbar at the top
+        # Top toolbar: grid size, mode, export, screenshot
         tool_frame = ctk.CTkFrame(self)
         tool_frame.pack(side="top", fill="x", padx=5, pady=5)
-
-        # Add tool buttons
-        for tool in ["Create Figure", "Drag", "Select"]:
-            ctk.CTkButton(tool_frame, text=tool, 
-                         command=lambda t=tool.lower().replace(" ", "_"): self.select_tool(t)
-                         ).pack(side="left", padx=5, pady=5)
-
-        # Add grid size input
         ctk.CTkLabel(tool_frame, text="Grid Size:").pack(side="left", padx=5, pady=5)
         self.grid_size_entry = ctk.CTkEntry(tool_frame, width=50)
         self.grid_size_entry.insert(0, str(self.grid_size))
         self.grid_size_entry.pack(side="left", padx=5, pady=5)
         self.grid_size_entry.bind("<Return>", self.update_grid_size)
-
-        # Add light/dark mode switch
+        ctk.CTkButton(tool_frame, text="Export to CSV", command=self.export_to_csv).pack(side="left", padx=5, pady=5)
+        ctk.CTkButton(tool_frame, text="Screenshot Canvas", command=self.screenshot_canvas).pack(side="left", padx=5, pady=5)
         mode_switch = ctk.CTkSwitch(tool_frame, text="Dark Mode", command=self.toggle_mode)
         mode_switch.pack(side="right", padx=5, pady=5)
 
-        # Object selection and export toolbar on the right
+        # Right menu: tool selection, separator, object tools
         object_frame = ctk.CTkFrame(self)
         object_frame.pack(side="right", fill="y", padx=5, pady=5)
-        
-        # Object selection section
+        # Tool selection (Drag/Select/Create Figure/Erase)
+        ctk.CTkLabel(object_frame, text="Tools:").pack(pady=(10, 2))
+        ctk.CTkButton(object_frame, text="🖐 Drag", command=lambda: self.select_tool("drag")).pack(fill="x", padx=10, pady=2)
+        ctk.CTkButton(object_frame, text="🖱 Select", command=lambda: self.select_tool("select")).pack(fill="x", padx=10, pady=2)
+        ctk.CTkButton(object_frame, text="➕ Create Figure", command=lambda: self.select_tool("create_figure")).pack(fill="x", padx=10, pady=2)
+        ctk.CTkButton(object_frame, text="🧹 Erase", command=lambda: self.select_tool("erase")).pack(fill="x", padx=10, pady=2)
+        # Black separator bar
+        sep = ctk.CTkFrame(object_frame, height=2, fg_color="black")
+        sep.pack(fill="x", padx=5, pady=10)
+        # Object tools
         ctk.CTkLabel(object_frame, text="Object:").pack(pady=5)
         self.object_menu = ctk.CTkOptionMenu(object_frame, 
-                                           variable=self.objeto_actual, 
-                                           values=list(OBJETOS_DISPONIBLES.keys()))
+                                             variable=self.objeto_actual, 
+                                             values=list(OBJETOS_DISPONIBLES.keys()))
         self.object_menu.pack(pady=5)
-        
-        # Object management buttons
+        self.object_menu.configure(command=self._on_object_menu_change)
         ctk.CTkButton(object_frame, text="New Object", 
-                     command=self.open_create_menu).pack(pady=5)
-        ctk.CTkButton(object_frame, text="Export to CSV", 
-                     command=self.export_to_csv).pack(pady=5)
+                      command=self.open_create_menu).pack(pady=5)
         
         # Cable section
         ctk.CTkLabel(object_frame, text="Cables:").pack(pady=(20,5))
@@ -112,6 +112,22 @@ class App(ctk.CTk):
                      command=lambda: self.select_tool("delete_cable"),
                      width=120).pack(pady=(10,2))
 
+    def _on_object_menu_change(self, value):
+        self.objeto_actual.set(value)
+        self.select_tool("create_figure")
+
+    def screenshot_canvas(self):
+        self.update()
+        x = self.canvas.winfo_rootx()
+        y = self.canvas.winfo_rooty()
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+        file_path = simpledialog.askstring("Save Screenshot", "Enter file name (without extension):")
+        if file_path:
+            img.save(f"{file_path}.png")
+            messagebox.showinfo("Screenshot Saved", f"Screenshot saved as {file_path}.png")
+
     def toggle_mode(self):
         """Toggle between light and dark mode."""
         current_mode = ctk.get_appearance_mode()
@@ -129,10 +145,11 @@ class App(ctk.CTk):
         self.canvas.pack(fill="both", expand=True, padx=5, pady=5)
         self.canvas.bind("<Configure>", self.on_canvas_resize)  # Handle resizing
         self.canvas.bind("<Button-1>", self.on_click)  # Left-click for selecting/placing
-        self.canvas.bind("<Button-3>", self.delete_object)  # Right-click for deleting
-        self.canvas.bind("<Double-Button-1>", self.edit_object)  # Double-click for editing
-        self.canvas.bind("<B1-Motion>", self.on_drag)  # Dragging
         self.canvas.bind("<ButtonRelease-1>", self.release)  # Release after dragging
+        self.canvas.bind("<B1-Motion>", self.on_drag)  # Dragging (always enabled)
+        self.canvas.bind("<Button-3>", self.show_object_context_menu)  # Right-click for context menu
+        self.canvas.bind("<Double-Button-1>", self.edit_object)  # Double-click for editing
+        self.canvas.bind("<Motion>", self.on_mouse_move)  # For preview
         self.draw_grid()
 
     def draw_grid(self):
@@ -152,31 +169,218 @@ class App(ctk.CTk):
         """Redraw the grid when the canvas is resized."""
         self.draw_grid()
 
+    def remove_preview(self):
+        if hasattr(self, '_preview_items'):
+            for item in self._preview_items:
+                self.canvas.delete(item)
+            self._preview_items = []
+
     def select_tool(self, tool):
         self.tool = tool
-        if tool == "delete_cable":
+        if tool == "drag":
+            self.canvas.config(cursor="hand2")
+        elif tool == "select":
+            self.canvas.config(cursor="arrow")
+        elif tool == "erase":
+            self.canvas.config(cursor="X_cursor")
+        elif tool == "delete_cable":
             self.cleanup_cable_preview()
             self.cable_type = None
-            self.canvas.config(cursor="circle")  # 'circle' es lo más parecido a una goma en Tkinter
+            self.canvas.config(cursor="X_cursor")  # 'circle' es lo más parecido a una goma en Tkinter
         else:
-            self.canvas.config(cursor="")
+            self.canvas.config(cursor="tcross")
+        # Remove preview if not in create_figure mode
+        if tool != "create_figure":
+            self.remove_preview()
 
     def on_click(self, event):
-        """Handle click events based on the selected tool."""
-        if self.tool == "create_figure":
-            self.place_object(event)
-        elif self.tool == "select":
-            self.select_object(event)
-        elif self.tool == "cable":
+        """Handle mouse click events."""
+        self._drag_started = False
+        self._click_x = event.x
+        self._click_y = event.y
+        self._mouse_down_on_obj = False
+        
+        clicked_id = self.canvas.find_closest(event.x, event.y)[0]
+        
+        # Si estamos en modo cable o delete_cable, manejamos el click específicamente
+        if self.tool == "cable":
             self.handle_cable_click(event)
+            return
         elif self.tool == "delete_cable":
             self.delete_cable_click(event)
+            return
+            
+        # Para otros modos, manejamos objetos y IO points
+        for obj in self.objetos:
+            if clicked_id in obj.id_canvas:
+                self._mouse_down_on_obj = True
+                if self.tool == "erase":
+                    for cid in obj.id_canvas:
+                        self.canvas.delete(cid)
+                    self.objetos.remove(obj)
+                return
+                
+        if self.tool == "select" and not self._mouse_down_on_obj:
+            self.select_object(event)
+        elif self.tool == "create_figure":
+            self.place_object(event)
+            self.remove_preview()
+        else:
+            self._pending_create = False
 
     def on_drag(self, event):
-        """Handle drag events."""
-        if self.tool == "drag":
-            self.drag(event)
+        """Handle drag events for objects or IO points. Drag always enabled on left hold, also in select mode."""
+        # If dragging IO point
+        if hasattr(self, 'dragging_io_index') and self.seleccionado and self.dragging_io_index is not None:
+            obj = self.seleccionado
+            idx = self.dragging_io_index
+            attributes = obj.atributos
+            size_x = attributes.get("size_x", 100)
+            size_y = attributes.get("size_y", 100)
+            x, y = obj.x, obj.y
+            io = obj.io_points[idx]
+            rel_x = (event.x - (x - size_x // 2)) / size_x
+            rel_y = (event.y - (y - size_y // 2)) / size_y
+            sides = {
+                'left': abs(rel_x),
+                'right': abs(rel_x - 1),
+                'top': abs(rel_y),
+                'bottom': abs(rel_y - 1)
+            }
+            side = min(sides, key=sides.get)
+            if side in ['left', 'right']:
+                pos = min(max(rel_y, 0), 1)
+            else:
+                pos = min(max(rel_x, 0), 1)
+            io['side'] = side
+            io['pos'] = pos
+            if side == 'left':
+                px = x - size_x // 2
+                py = y - size_y // 2 + pos * size_y
+            elif side == 'right':
+                px = x + size_x // 2
+                py = y - size_y // 2 + pos * size_y
+            elif side == 'top':
+                px = x - size_x // 2 + pos * size_x
+                py = y - size_y // 2
+            else:
+                px = x - size_x // 2 + pos * size_x
+                py = y + size_y // 2
+            self.canvas.coords(
+                io['canvas_id'],
+                px - 5, py - 5, px + 5, py + 5
+            )
+            self._drag_started = True
+            self._pending_create = False
+        else:
+            # Try to drag a figure if mouse is over it, even if tool is 'select' or 'drag'
+            if self.tool in ['select', 'drag', 'create_figure']:
+                closest = self.canvas.find_closest(event.x, event.y)[0]
+                obj = self.get_object_by_id(closest)
+                if obj:
+                    if self.seleccionado is None:
+                        self.seleccionado = obj
+                        self.dx = event.x - obj.x
+                        self.dy = event.y - obj.y
+                    new_x = event.x - self.dx
+                    new_y = event.y - self.dy
+                    self.seleccionado.x = new_x
+                    self.seleccionado.y = new_y
+                    attributes = self.seleccionado.atributos
+                    size_x = attributes.get("size_x", 100)
+                    size_y = attributes.get("size_y", 100)
+                    self.canvas.coords(
+                        self.seleccionado.id_canvas[0],
+                        new_x - size_x // 2, new_y - size_y // 2,
+                        new_x + size_x // 2, new_y + size_y // 2
+                    )
+                    self.canvas.coords(self.seleccionado.id_canvas[1], new_x, new_y)
+                    # Move IO points
+                    for io in self.seleccionado.io_points:
+                        if io['side'] == 'left':
+                            px = new_x - size_x // 2
+                            py = new_y - size_y // 2 + io['pos'] * size_y
+                        elif io['side'] == 'right':
+                            px = new_x + size_x // 2
+                            py = new_y - size_y // 2 + io['pos'] * size_y
+                        elif io['side'] == 'top':
+                            px = new_x - size_x // 2 + io['pos'] * size_x
+                            py = new_y - size_y // 2
+                        else:
+                            px = new_x - size_x // 2 + io['pos'] * size_x
+                            py = new_y + size_y // 2
+                        self.canvas.coords(
+                            io['canvas_id'],
+                            px - 5, py - 5, px + 5, py + 5
+                        )
+                    self._drag_started = True
+                    self._pending_create = False
+                else:
+                    self._drag_started = False
+            else:
+                self._drag_started = False
+    def release(self, event):
+        """Release the selected object or IO point."""
+        if hasattr(self, 'dragging_io_index') and self.dragging_io_index is not None:
+            # Si estabas arrastrando un IO point, guarda su posición actual
+            io = self.seleccionado.io_points[self.dragging_io_index]
+            coords = self.canvas.coords(io['canvas_id'])
+            # Guarda el centro del IO point
+            io['current_x'] = (coords[0] + coords[2]) / 2
+            io['current_y'] = (coords[1] + coords[3]) / 2
+            # Limpia el estado de arrastre
+            self.dragging_io_index = None
+            self.seleccionado = None
+        else:
+            if self.seleccionado:
+                # Si estabas moviendo el objeto completo
+                x, y = self.seleccionado.x, self.seleccionado.y
+                attributes = self.seleccionado.atributos
+                size_x = attributes.get("size_x", 100)
+                size_y = attributes.get("size_y", 100)
+                
+                # Actualiza la posición del rectángulo principal y el texto
+                self.canvas.coords(
+                    self.seleccionado.id_canvas[0],
+                    x - size_x // 2, y - size_y // 2,
+                    x + size_x // 2, y + size_y // 2
+                )
+                self.canvas.coords(self.seleccionado.id_canvas[1], x, y)
+                
+                # Al mover el objeto, actualiza los IO points basándose en su posición guardada o calculada
+                for io in self.seleccionado.io_points:
+                    if hasattr(io, 'current_x') and hasattr(io, 'current_y'):
+                        # Si el IO point tiene una posición personalizada, úsala
+                        px = io['current_x']
+                        py = io['current_y']
+                    else:
+                        # Si no, calcula la posición basada en side y pos
+                        if io['side'] == 'left':
+                            px = x - size_x // 2
+                            py = y - size_y // 2 + io['pos'] * size_y
+                        elif io['side'] == 'right':
+                            px = x + size_x // 2
+                            py = y - size_y // 2 + io['pos'] * size_y
+                        elif io['side'] == 'top':
+                            px = x - size_x // 2 + io['pos'] * size_x
+                            py = y - size_y // 2
+                        else:
+                            px = x - size_x // 2 + io['pos'] * size_x
+                            py = y + size_y // 2
+                        
+                    # Actualiza la posición del IO point
+                    self.canvas.coords(
+                        io['canvas_id'],
+                        px - 5, py - 5,
+                        px + 5, py + 5
+                    )
+                self.seleccionado = None
 
+        if getattr(self, '_pending_create', False) and not getattr(self, '_drag_started', False):
+            self.place_object(event)
+        self._pending_create = False
+        self._drag_started = False
+        self._mouse_down_on_obj = False
     def place_object(self, event):
         """Place a new object on the canvas."""
         obj_type = self.objeto_actual.get()
@@ -195,30 +399,37 @@ class App(ctk.CTk):
         id_canvas = [self.canvas.create_rectangle(
             x - size_x // 2, y - size_y // 2,
             x + size_x // 2, y + size_y // 2,
-            fill=color, tags="figure"
+            fill=color,outline='black', width=1, tags="figure"
         )]
         text_id = self.canvas.create_text(x, y, text=obj_type, fill="white", tags="figure")
         id_canvas.append(text_id)
 
-        # Draw inputs as small circles on the left edge
+        # Place IO points on contour, default: inputs left, outputs right, but store side/pos
+        obj.io_points = []
         for i in range(inputs):
-            input_y = y - size_y // 2 + (i + 1) * size_y // (inputs + 1)
+            pos = (i + 1) / (inputs + 1)
+            io = {'side': 'left', 'pos': pos}
+            input_y = y - size_y // 2 + pos * size_y
             input_id = self.canvas.create_oval(
                 x - size_x // 2 - 5, input_y - 5,
                 x - size_x // 2 + 5, input_y + 5,
-                fill="black", tags="figure"
+                fill="white", tags="figure"
             )
             id_canvas.append(input_id)
-
-        # Draw outputs as small circles on the right edge
+            io['canvas_id'] = input_id
+            obj.io_points.append(io)
         for i in range(outputs):
-            output_y = y - size_y // 2 + (i + 1) * size_y // (outputs + 1)
-            output_id = self.canvas.create_oval(
+            pos = (i + 1) / (outputs + 1)
+            io = {'side': 'right', 'pos': pos}
+            output_y = y - size_y // 2 + pos * size_y
+            output_id = self.canvas.create_rectangle(
                 x + size_x // 2 - 5, output_y - 5,
                 x + size_x // 2 + 5, output_y + 5,
-                fill="black", tags="figure"
+                fill="white", tags="figure"
             )
             id_canvas.append(output_id)
+            io['canvas_id'] = output_id
+            obj.io_points.append(io)
 
         obj.id_canvas = id_canvas
         self.objetos.append(obj)
@@ -232,6 +443,51 @@ class App(ctk.CTk):
         obj = self.get_object_by_id(closest)
         if obj:
             messagebox.showinfo("Object Selected", f"Type: {obj.tipo}\nPosition: ({obj.x}, {obj.y})\nAttributes: {obj.atributos}")
+    def show_object_context_menu(self, event):
+        """Show a right-click context menu for an object (delete, edit attributes, view attributes)."""
+        closest = self.canvas.find_closest(event.x, event.y)[0]
+        obj = self.get_object_by_id(closest)
+        if not obj:
+            return
+        menu = Menu(self, tearoff=0)
+        def delete_obj():
+            for cid in obj.id_canvas:
+                self.canvas.delete(cid)
+            self.objetos.remove(obj)
+        def show_attrs():
+            attr_text = '\n'.join(f"{k}: {v}" for k, v in obj.atributos.items())
+            messagebox.showinfo("Object Attributes", f"Type: {obj.tipo}\nPosition: ({obj.x}, {obj.y})\nAttributes:\n{attr_text}")
+        def edit_attrs():
+            # Custom dialog for editing all attributes at once
+            edit_win = ctk.CTkToplevel(self)
+            edit_win.title("Edit Attributes")
+            edit_win.geometry("300x400")
+            edit_win.lift()  # Bring to front
+            edit_win.attributes('-topmost', True)
+            entries = {}
+            for i, (k, v) in enumerate(obj.atributos.items()):
+                ctk.CTkLabel(edit_win, text=f"{k}:", font=("Arial", 12)).pack(anchor="w", padx=10, pady=(10 if i==0 else 2, 2))
+                entry = ctk.CTkEntry(edit_win, font=("Arial", 12))
+                entry.insert(0, str(v))
+                entry.pack(fill="x", padx=10, pady=2)
+                entries[k] = (entry, type(v))
+            def save():
+                for k, (entry, typ) in entries.items():
+                    val = entry.get()
+                    try:
+                        obj.atributos[k] = typ(val)
+                    except Exception:
+                        obj.atributos[k] = val
+                edit_win.destroy()
+            ctk.CTkButton(edit_win, text="OK", command=save, font=("Arial", 12)).pack(pady=15)
+            edit_win.focus_force()
+        menu.add_command(label="View Attributes", command=show_attrs)
+        menu.add_command(label="Edit Attributes", command=edit_attrs)
+        menu.add_command(label="Delete", command=delete_obj)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
 
     def drag(self, event):
         """Drag an object."""
@@ -355,15 +611,7 @@ class App(ctk.CTk):
                 except ValueError:
                     messagebox.showerror("Error", f"Invalid type for '{k}'")
 
-    def export_to_excel(self):
-        """Export object data to an Excel file."""
-        data = [{"Type": obj.tipo, "X": obj.x, "Y": obj.y, **obj.atributos} for obj in self.objetos]
-        df = pd.DataFrame(data)
-        file_path = simpledialog.askstring("Export to Excel", "Enter file name (e.g., objects.xlsx):")
-        if file_path:
-            df.to_excel(file_path, index=False)
-            messagebox.showinfo("Export Successful", f"Data exported to {file_path}")
-
+    
     def export_to_csv(self):
         """Export object data to a CSV file."""
         data = [{"Type": obj.tipo, "X": obj.x, "Y": obj.y, **obj.atributos} for obj in self.objetos]
@@ -492,6 +740,8 @@ class App(ctk.CTk):
 
                 self.create_menu_window.destroy()
                 self.create_menu_window = None  # Reset the reference
+                # Switch to create_figure tool after creating a new object
+                self.select_tool("create_figure")
             except ValueError:
                 messagebox.showerror("Error", "Size X, Size Y, Inputs, and Outputs must be integers.")
 
@@ -519,6 +769,11 @@ class App(ctk.CTk):
             self.canvas.delete(obj.id_canvas[1])
             # Remove the object from the list of objects
             self.objetos.remove(obj)
+    def on_mouse_move(self, event):
+        if self.tool == "create_figure":
+            self.show_preview(event)
+        else:
+            self.remove_preview()
 
     def select_cable(self, cable_type):
         """Select a cable type for connection."""
@@ -527,6 +782,53 @@ class App(ctk.CTk):
         self.start_point = None
         self.start_object = None
         self.is_input_start = None
+    
+    def show_preview(self, event):
+        # Remove previous preview if any
+        self.remove_preview()
+        obj_type = self.objeto_actual.get()
+        attributes = OBJETOS_DISPONIBLES.get(obj_type, {})
+        x, y = event.x, event.y
+        size_x = attributes.get("size_x", 100)
+        size_y = attributes.get("size_y", 100)
+        inputs = attributes.get("inputs", 0)
+        outputs = attributes.get("outputs", 0)
+        color = {"Motor": "red", "Sensor": "blue", "Caja": "green"}.get(obj_type, "gray")
+        # Draw preview rectangle
+        self._preview_items = []
+        rect = self.canvas.create_rectangle(
+            x - size_x // 2, y - size_y // 2,
+            x + size_x // 2, y + size_y // 2,
+            outline=color, width=2, dash=(4, 2), tags="preview"
+        )
+        self._preview_items.append(rect)
+        text_id = self.canvas.create_text(x, y, text=obj_type, fill=color, tags="preview")
+        self._preview_items.append(text_id)
+        # Draw IO points as preview
+        for i in range(inputs):
+            pos = (i + 1) / (inputs + 1)
+            input_y = y - size_y // 2 + pos * size_y
+            oval = self.canvas.create_oval(
+                x - size_x // 2 - 5, input_y - 5,
+                x - size_x // 2 + 5, input_y + 5,
+                outline=color, width=2, tags="preview"
+            )
+            self._preview_items.append(oval)
+        for i in range(outputs):
+            pos = (i + 1) / (outputs + 1)
+            output_y = y - size_y // 2 + pos * size_y
+            oval = self.canvas.create_oval(
+                x + size_x // 2 - 5, output_y - 5,
+                x + size_x // 2 + 5, output_y + 5,
+                outline=color, width=2, tags="preview"
+            )
+            self._preview_items.append(oval)
+
+    def remove_preview(self):
+        if hasattr(self, '_preview_items'):
+            for item in self._preview_items:
+                self.canvas.delete(item)
+            self._preview_items = []
 
     def is_input_point(self, obj, x, y):
         """Check if the clicked point is near an input connection point."""
