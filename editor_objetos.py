@@ -107,7 +107,7 @@ class App(ctk.CTk):
 
         # Variables
         self.objetos = []
-        self.objeto_actual = ctk.StringVar(value="Motor")
+        self.objeto_actual = ctk.StringVar(value="None")
         self.seleccionado = None
         self.dx = self.dy = 0
         self.tool = "create"  # Default tool
