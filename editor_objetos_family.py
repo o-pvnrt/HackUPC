@@ -6,87 +6,296 @@ import os
 
 
 # Dictionary of predefined objects
-OBJETOS_DISPONIBLES = {
-    "None": {
-        "size_x": 100,
-        "size_y": 100,
-        "price": 0,
-        "inputs": 0,
-        "outputs": 0,
-        "common": [],
-        "specific": []
+FAMILY_MODULES = {
+    "Transformer 100": {
+        "family": "Transformer",
+        "common": {
+            "Space X": 40,
+            "Space Y": 45,
+            "Price": 1000
+        },
+        "inputs": {
+            "Grid Connection": 1
+        },
+        "outputs": {
+            "Usable Power": 100
+        }
     },
-    "Transformer": {
-        "size_x": 120,
-        "size_y": 120,
-        "price": 10000,
-        "inputs": 1,
-        "outputs": 1,
-        "inputs_names": ["Grid Connection"],
-        "outputs_names": ["Usable Power"],
-        "common": ["Space X", "Space Y", "Price"]
+    "Transformer 1000": {
+        "family": "Transformer",
+        "common": {
+            "Space X": 100,
+            "Space Y": 100,
+            "Price": 50000
+        },
+        "inputs": {
+            "Grid Connection": 1
+        },
+        "outputs": {
+            "Usable Power": 1000
+        }
     },
-    "Water Supply": {
-        "size_x": 100,
-        "size_y": 100,
-        "price": 5000,
-        "inputs": 1,
-        "outputs": 1,
-        "inputs_names": ["Water Connection"],
-        "outputs_names": ["Fresh Water"],
-        "common": ["Space X", "Space Y", "Price"]
+    "Transformer 5000": {
+        "family": "Transformer",
+        "common": {
+            "Space X": 200,
+            "Space Y": 200,
+            "Price": 250000
+        },
+        "inputs": {
+            "Grid Connection": 1
+        },
+        "outputs": {
+            "Usable Power": 5000
+        }
     },
-    "Water Treatment": {
-        "size_x": 120,
-        "size_y": 120,
-        "price": 8000,
-        "inputs": 2,
-        "outputs": 1,
-        "inputs_names": ["Fresh Water", "Usable Power"],
-        "outputs_names": ["Distilled Water"],
-        "common": ["Space X", "Space Y", "Price"]
+    "Water Supply 100": {
+        "family": "Water Supply",
+        "common": {
+            "Space X": 50,
+            "Space Y": 50,
+            "Price": 200
+        },
+        "inputs": {
+            "Water Connection": 1
+        },
+        "outputs": {
+            "Fresh Water": 100
+        }
     },
-    "Water Chiller": {
-        "size_x": 120,
-        "size_y": 120,
-        "price": 9000,
-        "inputs": 2,
-        "outputs": 1,
-        "inputs_names": ["Distilled Water", "Usable Power"],
-        "outputs_names": ["Chilled Water"],
-        "common": ["Space X", "Space Y", "Price"]
+    "Water Supply 500": {
+        "family": "Water Supply",
+        "common": {
+            "Space X": 150,
+            "Space Y": 100,
+            "Price": 400
+        },
+        "inputs": {
+            "Water Connection": 1
+        },
+        "outputs": {
+            "Fresh Water": 500
+        }
     },
-    "Network Rack": {
-        "size_x": 100,
-        "size_y": 200,
-        "price": 15000,
-        "inputs": 3,
-        "outputs": 1,
-        "inputs_names": ["Usable Power", "Chilled Water", "Fresh Water"],
-        "outputs_names": ["Internal Network"],
-        "common": ["Space X", "Space Y", "Price"]
+    "Water Treatment 50": {
+        "family": "Water Treatment",
+        "common": {
+            "Space X": 50,
+            "Space Y": 50,
+            "Price": 10000
+        },
+        "inputs": {
+            "Fresh Water": 50,
+            "Usable Power": 50
+        },
+        "outputs": {
+            "Distlled Water": 50
+        }
     },
-    "Server Rack": {
-        "size_x": 100,
-        "size_y": 200,
-        "price": 20000,
-        "inputs": 4,
-        "outputs": 2,
-        "inputs_names": ["Usable Power", "Chilled Water", "Internal Network", "Distilled Water"],
-        "outputs_names": ["Processing", "External Network"],
-        "common": ["Space X", "Space Y", "Price"]
+    "Water Treatment 250": {
+        "family": "Water Treatment",
+        "common": {
+            "Space X": 200,
+            "Space Y": 200,
+            "Price": 40000
+        },
+        "inputs": {
+            "Fresh Water": 250,
+            "Usable Power": 90
+        },
+        "outputs": {
+            "Distlled Water": 250
+        }
     },
-    "Data Rack": {
-        "size_x": 100,
-        "size_y": 200,
-        "price": 18000,
-        "inputs": 4,
-        "outputs": 1,
-        "inputs_names": ["Usable Power", "Chilled Water", "Internal Network", "Distilled Water"],
-        "outputs_names": ["Data Storage"],
-        "common": ["Space X", "Space Y", "Price"]
+    "Water Treatment 500": {
+        "family": "Water Treatment",
+        "common": {
+            "Space X": 400,
+            "Space Y": 400,
+            "Price": 70000
+        },
+        "inputs": {
+            "Fresh Water": 500,
+            "Usable Power": 150
+        },
+        "outputs": {
+            "Distlled Water": 500
+        }
+    },
+    "Water Chiller 100": {
+        "family": "Water Chiller",
+        "common": {
+            "Space X": 100,
+            "Space Y": 100,
+            "Price": 40000
+        },
+        "inputs": {
+            "Distlled Water": 100,
+            "Usable Power": 500
+        },
+        "outputs": {
+            "Chilled Water": 95
+        }
+    },
+    "Water Chiller 400": {
+        "family": "Water Chiller",
+        "common": {
+            "Space X": 300,
+            "Space Y": 100,
+            "Price": 150000
+        },
+        "inputs": {
+            "Distlled Water": 400,
+            "Usable Power": 1500
+        },
+        "outputs": {
+            "Chilled Water": 390
+        }
+    },
+    "Network Rack 50": {
+        "family": "Network Rack",
+        "common": {
+            "Space X": 40,
+            "Space Y": 40,
+            "Price": 2000
+        },
+        "inputs": {
+            "Usable Power": 50,
+            "Chilled Water": 5,
+            "Fresh Water": 5
+        },
+        "outputs": {
+            "Internal Network": 50
+        }
+    },
+    "Network Rack 100": {
+        "family": "Network Rack",
+        "common": {
+            "Space X": 40,
+            "Space Y": 40,
+            "Price": 8000
+        },
+        "inputs": {
+            "Usable Power": 75,
+            "Chilled Water": 7,
+            "Fresh Water": 7
+        },
+        "outputs": {
+            "Internal Network": 100
+        }
+    },
+    "Network Rack 200": {
+        "family": "Network Rack",
+        "common": {
+            "Space X": 40,
+            "Space Y": 40,
+            "Price": 20000
+        },
+        "inputs": {
+            "Usable Power": 95,
+            "Chilled Water": 10,
+            "Fresh Water": 40
+        },
+        "outputs": {
+            "Internal Network": 200
+        }
+    },
+    "Server Rack 100": {
+        "family": "Server Rack",
+        "common": {
+            "Space X": 40,
+            "Space Y": 40,
+            "Price": 8000
+        },
+        "inputs": {
+            "Usable Power": 75,
+            "Chilled Water": 15,
+            "Internal Network": 10,
+            "Distilled Water": 15
+        },
+        "outputs": {
+            "Processing": 100,
+            "External Network": 100
+        }
+    },
+    "Server Rack 200": {
+        "family": "Server Rack",
+        "common": {
+            "Space X": 40,
+            "Space Y": 40,
+            "Price": 12000
+        },
+        "inputs": {
+            "Usable Power": 125,
+            "Chilled Water": 25,
+            "Internal Network": 18,
+            "Distilled Water": 25
+        },
+        "outputs": {
+            "Processing": 150,
+            "External Network": 200
+        }
+    },
+    "Server Rack 500": {
+        "family": "Server Rack",
+        "common": {
+            "Space X": 40,
+            "Space Y": 40,
+            "Price": 50000
+        },
+        "inputs": {
+            "Usable Power": 240,
+            "Chilled Water": 50,
+            "Internal Network": 32,
+            "Distilled Water": 50
+        },
+        "outputs": {
+            "Processing": 1000,
+            "External Network": 400
+        }
+    },
+    "Data Rack 100": {
+        "family": "Data Rack",
+        "common": {
+            "Space X": 40,
+            "Space Y": 40,
+            "Price": 2000
+        },
+        "inputs": {
+            "Usable Power": 15,
+            "Chilled Water": 3,
+            "Internal Network": 5,
+            "Distilled Water": 3
+        },
+        "outputs": {
+            "Data Storage": 100
+        }
+    },
+    "Data Rack 250": {
+        "family": "Data Rack",
+        "common": {
+            "Space X": 40,
+            "Space Y": 40,
+            "Price": 7500
+        },
+        "inputs": {
+            "Usable Power": 25,
+            "Chilled Water": 3,
+            "Internal Network": 10,
+            "Distilled Water": 3
+        },
+        "outputs": {
+            "Data Storage": 250
+        }
     }
 }
+
+FAMILIES = {}
+for module_name, module_data in FAMILY_MODULES.items():
+    family = module_data["family"]
+    if family not in FAMILIES:
+        FAMILIES[family] = []
+    FAMILIES[family].append(module_name)
 
 class Objeto:
     def __init__(self, tipo, x, y, atributos):
@@ -102,7 +311,7 @@ class App(ctk.CTk):
         super().__init__()
         self.title("DaceCAD")
         self.geometry("900x700")
-        ctk.set_appearance_mode("System")  # Options: "System", "Dark", "Light"
+        ctk.set_appearance_mode("Light")  # Options: "System", "Dark", "Light"
         ctk.set_default_color_theme("blue")  # Options: "blue", "green", "dark-blue"
 
         # Variables
@@ -159,14 +368,29 @@ class App(ctk.CTk):
         sep = ctk.CTkFrame(object_frame, height=2, fg_color="black")
         sep.pack(fill="x", padx=5, pady=10)
         # Object tools
+        ctk.CTkLabel(object_frame, text="Family:").pack(pady=5)
+        self.family_menu = ctk.CTkOptionMenu(
+            object_frame,
+            values=list(FAMILIES.keys()),
+            command=self._on_family_select
+        )
+        self.family_menu.pack(pady=5)
+
         ctk.CTkLabel(object_frame, text="Object:").pack(pady=5)
-        self.object_menu = ctk.CTkOptionMenu(object_frame, 
-                                             variable=self.objeto_actual, 
-                                             values=list(OBJETOS_DISPONIBLES.keys()))
+        self.object_menu = ctk.CTkOptionMenu(
+            object_frame,
+            values=[],
+            command=self._on_object_menu_change
+        )
         self.object_menu.pack(pady=5)
-        self.object_menu.configure(command=self._on_object_menu_change)
+        self.object_menu.configure(state="disabled")
+
         ctk.CTkButton(object_frame, text="New Object", 
-                      command=self.open_create_menu).pack(pady=5)
+              command=self.open_create_menu).pack(pady=5)
+
+        # Black separator bar
+        sep = ctk.CTkFrame(object_frame, height=2, fg_color="black")
+        sep.pack(fill="x", padx=5, pady=10)
         
         # Cable section
         ctk.CTkLabel(object_frame, text="Cables:").pack(pady=(20,5))
@@ -190,10 +414,22 @@ class App(ctk.CTk):
         ctk.CTkButton(object_frame, text="🧽", fg_color="gray",
                      command=lambda: self.select_tool("delete_cable"),
                      width=120).pack(pady=(10,2))
+        
+    def _on_family_select(self, family):
+        """Handle family selection."""
+        if family in FAMILIES:
+            self.object_menu.configure(
+                values=FAMILIES[family],
+                state="normal"
+            )
+            self.object_menu.set(FAMILIES[family][0])
+            self._on_object_menu_change(FAMILIES[family][0])
 
     def _on_object_menu_change(self, value):
+        """Handle object selection."""
         self.objeto_actual.set(value)
         self.select_tool("create_figure")
+    
 
     def screenshot_canvas(self):
         self.update()
@@ -395,6 +631,9 @@ class App(ctk.CTk):
                         new_x + size_x // 2, new_y + size_y // 2
                     )
                     self.canvas.coords(self.seleccionado.id_canvas[1], new_x, new_y)
+                    # Update font size dynamically
+                    font_size = max(8, int(min(size_x, size_y) // 6))
+                    self.canvas.itemconfig(self.seleccionado.id_canvas[1], font=("Arial", font_size, "bold"))
                     # Move IO points
                     for io in self.seleccionado.io_points:
                         if io['side'] == 'left':
@@ -446,7 +685,9 @@ class App(ctk.CTk):
                     x + size_x // 2, y + size_y // 2
                 )
                 self.canvas.coords(self.seleccionado.id_canvas[1], x, y)
-                
+
+                font_size = max(8, int(min(size_x, size_y) // 6))
+                self.canvas.itemconfig(self.seleccionado.id_canvas[1], font=("Arial", font_size, "bold"))
                 # Al mover el objeto, actualiza los IO points basándose en su posición guardada o calculada
                 for io in self.seleccionado.io_points:
                     if hasattr(io, 'current_x') and hasattr(io, 'current_y'):
@@ -481,31 +722,73 @@ class App(ctk.CTk):
         self._pending_create = False
         self._drag_started = False
         self._mouse_down_on_obj = False
+
     def place_object(self, event):
         """Place a new object on the canvas."""
         obj_type = self.objeto_actual.get()
-        attributes = OBJETOS_DISPONIBLES[obj_type]
-        # Place at exact coordinates, not snapped
+        if obj_type not in FAMILY_MODULES:
+            return
+            
+        module_data = FAMILY_MODULES[obj_type]
+        common_attrs = module_data["common"]
+        
         x, y = event.x, event.y
+        
+        attributes = {
+            "size_x": common_attrs["Space X"],
+            "size_y": common_attrs["Space Y"],
+            "price": common_attrs["Price"],
+            "inputs": len(module_data["inputs"]),
+            "outputs": len(module_data["outputs"]),
+            "inputs_names": list(module_data["inputs"].keys()),
+            "outputs_names": list(module_data["outputs"].keys())
+        }
+        
         obj = Objeto(obj_type, x, y, attributes)
 
-        size_x = attributes.get("size_x", 100)
-        size_y = attributes.get("size_y", 100)
-        inputs = attributes.get("inputs", 0)
-        outputs = attributes.get("outputs", 0)
+        size_x = attributes["size_x"]
+        size_y = attributes["size_y"]
+        inputs = attributes["inputs"]
+        outputs = attributes["outputs"]
 
-        # Draw the main shape (rectangle)
-        color = {"Motor": "red", "Sensor": "blue", "Caja": "green"}.get(obj_type, "gray")
+        # Draw the main shape
         id_canvas = [self.canvas.create_rectangle(
             x - size_x // 2, y - size_y // 2,
             x + size_x // 2, y + size_y // 2,
-            fill=color,outline='black', width=1, tags="figure"
+            fill="gray", outline="black", width=1,
+            tags="figure"
         )]
-        text_id = self.canvas.create_text(x, y, text=obj_type, fill="white", tags="figure")
-        id_canvas.append(text_id)
+        
+        # Calculate font size based on object size (adjust divisor as needed)
+        
+        #text_id = self.canvas.create_text(x, y, text=obj_type, fill="white", tags="figure")
+        #id_canvas.append(text_id)
+        # Calculate font size based on object size (adjust divisor as needed)
+        # En place_object(), reemplaza la sección del texto:
+        # Calculate font size based on object size and text length
+        text_length = len(obj_type)
+        min_dimension = min(size_x, size_y)
+        font_size = min(
+            max(8, int(min_dimension // 6)),  # No menor que 8
+            int(size_x / (text_length * 0.6))  # Ajuste basado en longitud del texto
+        )
 
-        # Place IO points on contour, default: inputs left, outputs right, but store side/pos
-        obj.io_points = []
+        # Si el texto es muy largo, lo acortamos
+        #if text_length > 15:  # Ajusta este número según necesites
+          #  shortened_text = obj_type[:12] + "..."  # Mantén los primeros 12 caracteres y añade ...
+        #else:
+            #shortened_text = obj_type
+
+        text_id = self.canvas.create_text(
+            x, y, 
+            text=obj_type,
+            fill="white",
+            tags="figure",
+            font=("Arial", font_size, "bold"),
+            width=size_x - 10  # Permite envolver el texto si es necesario
+        )
+        id_canvas.append(text_id)
+        # Add inputs
         for i in range(inputs):
             pos = (i + 1) / (inputs + 1)
             io = {'side': 'left', 'pos': pos}
@@ -518,6 +801,8 @@ class App(ctk.CTk):
             id_canvas.append(input_id)
             io['canvas_id'] = input_id
             obj.io_points.append(io)
+
+        # Add outputs
         for i in range(outputs):
             pos = (i + 1) / (outputs + 1)
             io = {'side': 'right', 'pos': pos}
@@ -533,8 +818,7 @@ class App(ctk.CTk):
 
         obj.id_canvas = id_canvas
         self.objetos.append(obj)
-
-        # Ensure the figure is above the grid
+        
         self.canvas.tag_raise("figure")
 
     def select_object(self, event):
@@ -822,20 +1106,34 @@ class App(ctk.CTk):
 
             try:
                 nuevo_objeto = {
-                    "size_x": int(size_x.get()),
-                    "size_y": int(size_y.get()),
-                    "inputs": int(inputs.get()),
-                    "outputs": int(outputs.get())
+                    "family": "Custom",
+                    "common": {
+                        "Space X": int(size_x.get()),
+                        "Space Y": int(size_y.get()),
+                        "Price": 0
+                    },
+                    "inputs": {},
+                    "outputs": {}
                 }
-                for prop_nombre, prop_valor in propiedades:
-                    if prop_nombre.get() and prop_valor.get():
-                        nuevo_objeto[prop_nombre.get()] = prop_valor.get()
 
-                # Add the new object to the predefined objects
-                OBJETOS_DISPONIBLES[nombre.get()] = nuevo_objeto
+                # Añadir inputs y outputs numerados
+                for i in range(int(inputs.get())):
+                    nuevo_objeto["inputs"][f"Input {i+1}"] = 0
+
+                for i in range(int(outputs.get())):
+                    nuevo_objeto["outputs"][f"Output {i+1}"] = 0
+
+                # Add the new object to FAMILY_MODULES
+                FAMILY_MODULES[nombre.get()] = nuevo_objeto
+
+                # Actualizar FAMILIES
+                if "Custom" not in FAMILIES:
+                    FAMILIES["Custom"] = []
+                FAMILIES["Custom"].append(nombre.get())
+                # Save the updated FAMILY_MODULES to the file
 
                 # Update the dropdown menu
-                self.object_menu.configure(values=list(OBJETOS_DISPONIBLES.keys()))
+                self.object_menu.configure(values=list(FAMILY_MODULES.keys()))
                 self.objeto_actual.set(nombre.get())
 
                 self.create_menu_window.destroy()
@@ -857,7 +1155,7 @@ class App(ctk.CTk):
     def update_object_menu(self):
         """Update the object selection menu with the latest objects."""
         menu = self.nametowidget(self.objeto_actual._name)  # Access the OptionMenu widget
-        menu.configure(values=list(OBJETOS_DISPONIBLES.keys()))
+        menu.configure(values=list(FAMILY_MODULES.keys()))
 
     def delete_object(self, event):
         """Delete an object from the canvas."""
@@ -887,7 +1185,7 @@ class App(ctk.CTk):
         # Remove previous preview if any
         self.remove_preview()
         obj_type = self.objeto_actual.get()
-        attributes = OBJETOS_DISPONIBLES.get(obj_type, {})
+        attributes = FAMILY_MODULES.get(obj_type, {})
         x, y = event.x, event.y
         size_x = attributes.get("size_x", 100)
         size_y = attributes.get("size_y", 100)
