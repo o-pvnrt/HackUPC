@@ -764,14 +764,30 @@ class App(ctk.CTk):
         #text_id = self.canvas.create_text(x, y, text=obj_type, fill="white", tags="figure")
         #id_canvas.append(text_id)
         # Calculate font size based on object size (adjust divisor as needed)
-        font_size = max(8, int(min(size_x, size_y) // 6))
-        text_id = self.canvas.create_text(
-            x, y, text=obj_type, fill="white", tags="figure",
-            font=("Arial", font_size, "bold")
+        # En place_object(), reemplaza la sección del texto:
+        # Calculate font size based on object size and text length
+        text_length = len(obj_type)
+        min_dimension = min(size_x, size_y)
+        font_size = min(
+            max(8, int(min_dimension // 6)),  # No menor que 8
+            int(size_x / (text_length * 0.6))  # Ajuste basado en longitud del texto
         )
-        # Add IO points
-        obj.io_points = []
-        
+
+        # Si el texto es muy largo, lo acortamos
+        #if text_length > 15:  # Ajusta este número según necesites
+          #  shortened_text = obj_type[:12] + "..."  # Mantén los primeros 12 caracteres y añade ...
+        #else:
+            #shortened_text = obj_type
+
+        text_id = self.canvas.create_text(
+            x, y, 
+            text=obj_type,
+            fill="white",
+            tags="figure",
+            font=("Arial", font_size, "bold"),
+            width=size_x - 10  # Permite envolver el texto si es necesario
+        )
+        id_canvas.append(text_id)
         # Add inputs
         for i in range(inputs):
             pos = (i + 1) / (inputs + 1)
